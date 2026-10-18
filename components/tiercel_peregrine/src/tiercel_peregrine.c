@@ -51,6 +51,8 @@ static volatile bool       s_cancel;
 static volatile bool       s_stop_listen;
 static char                s_url[129];
 static char               *s_ca;          /* PSRAM, NULL when none */
+static char               *s_transcript;  /* PSRAM, TIERCEL_PG_TEXT_MAX */
+static char               *s_answer;      /* PSRAM, TIERCEL_PG_TEXT_MAX */
 
 #define LOCK()   xSemaphoreTake(s_lock, portMAX_DELAY)
 #define UNLOCK() xSemaphoreGive(s_lock)
@@ -78,21 +80,40 @@ static void fail(const char *why)
 }
 
 /* In-place %XX and '+' decoding for the X-Peregrine-* headers. */
-static void url_decode(char *s)
+/* Decode while copying, so `cap` bounds the DECODED text. Copying the
+ * encoded header first and decoding afterwards spent three bytes of the
+ * buffer on every space ("%20") and could cut an escape in half: a reply
+ * lost two thirds of its words before it reached the screen. A UTF-8
+ * sequence that would not fit whole is left out rather than split. */
+static void url_decode_into(char *dst, size_t cap, const char *src)
 {
-    char *o = s;
-    for (char *p = s; *p; p++) {
+    size_t o = 0;
+    for (const char *p = src; *p && o + 1 < cap; p++) {
+        unsigned char c;
         if (*p == '%' && isxdigit((unsigned char)p[1]) && isxdigit((unsigned char)p[2])) {
             char hex[3] = { p[1], p[2], 0 };
-            *o++ = (char)strtol(hex, NULL, 16);
+            c = (unsigned char)strtol(hex, NULL, 16);
             p += 2;
         } else if (*p == '+') {
-            *o++ = ' ';
+            c = ' ';
         } else {
-            *o++ = *p;
+            c = (unsigned char)*p;
+        }
+        dst[o++] = (char)c;
+    }
+    /* Back off a trailing partial UTF-8 sequence. */
+    size_t k = o;
+    while (k > 0 && ((unsigned char)dst[k - 1] & 0xC0) == 0x80) {
+        k--;
+    }
+    if (k > 0 && ((unsigned char)dst[k - 1] & 0x80)) {
+        const unsigned char lead = (unsigned char)dst[k - 1];
+        const size_t need = lead >= 0xF0 ? 4 : lead >= 0xE0 ? 3 : lead >= 0xC0 ? 2 : 1;
+        if (o - (k - 1) < need) {
+            o = k - 1;
         }
     }
-    *o = '\0';
+    dst[o] = '\0';
 }
 
 /*
@@ -125,19 +146,18 @@ static esp_err_t http_event(esp_http_client_event_t *e)
     }
     char *dst = NULL;
     if (strcasecmp(e->header_key, "X-Peregrine-Transcript") == 0) {
-        dst = s_st.transcript;
+        dst = s_transcript;
     } else if (strcasecmp(e->header_key, "X-Peregrine-Response") == 0) {
         /* "streaming" is a placeholder, not an answer: the reply is being
          * spoken as the LLM writes it and there is no text to show. */
         if (strcmp(e->header_value, "streaming") == 0) {
             return ESP_OK;
         }
-        dst = s_st.answer;
+        dst = s_answer;
     }
     if (dst) {
         LOCK();
-        snprintf(dst, TIERCEL_PG_TEXT_MAX, "%s", e->header_value);
-        url_decode(dst);
+        url_decode_into(dst, TIERCEL_PG_TEXT_MAX, e->header_value);
         fold_to_ascii(dst);
         UNLOCK();
     }
@@ -386,7 +406,9 @@ static void worker(void *arg)
 esp_err_t tiercel_peregrine_init(void)
 {
     s_lock = xSemaphoreCreateMutex();
-    if (!s_lock) {
+    s_transcript = heap_caps_calloc(1, TIERCEL_PG_TEXT_MAX, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    s_answer = heap_caps_calloc(1, TIERCEL_PG_TEXT_MAX, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!s_lock || !s_transcript || !s_answer) {
         return ESP_ERR_NO_MEM;
     }
     set_phase(TIERCEL_PG_IDLE);
@@ -441,7 +463,7 @@ void tiercel_peregrine_tap(void)
             return;
         }
         LOCK();
-        s_st.transcript[0] = s_st.answer[0] = s_st.error[0] = '\0';
+        s_transcript[0] = s_answer[0] = s_st.error[0] = '\0';
         s_st.heard_speech = false;
         set_phase_locked(TIERCEL_PG_LISTENING);
         UNLOCK();
@@ -479,8 +501,20 @@ void tiercel_peregrine_reset(void)
     LOCK();
     const tiercel_pg_phase_t p = s_st.phase;
     if (p == TIERCEL_PG_DONE || p == TIERCEL_PG_ERROR) {
-        s_st.transcript[0] = s_st.answer[0] = s_st.error[0] = '\0';
+        s_transcript[0] = s_answer[0] = s_st.error[0] = '\0';
         set_phase_locked(TIERCEL_PG_IDLE);
+    }
+    UNLOCK();
+}
+
+void tiercel_peregrine_text(char *transcript, char *answer)
+{
+    LOCK();
+    if (transcript) {
+        memcpy(transcript, s_transcript, TIERCEL_PG_TEXT_MAX);
+    }
+    if (answer) {
+        memcpy(answer, s_answer, TIERCEL_PG_TEXT_MAX);
     }
     UNLOCK();
 }

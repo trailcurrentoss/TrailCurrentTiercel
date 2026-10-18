@@ -60,19 +60,26 @@ typedef enum {
     TIERCEL_PG_ERROR,        /**< see tiercel_peregrine_status_t.error */
 } tiercel_pg_phase_t;
 
-#define TIERCEL_PG_TEXT_MAX 192
+/* Decoded bytes, terminator included: room for a spoken answer of a few
+ * sentences. The text is NOT in tiercel_pg_status_t -- that is copied by
+ * value onto the LVGL task's stack at 25 Hz -- but in PSRAM behind
+ * tiercel_peregrine_text(). */
+#define TIERCEL_PG_TEXT_MAX 512
 
 typedef struct {
     tiercel_pg_phase_t phase;
     bool     configured;                    /**< URL (and CA, for https) present */
     bool     heard_speech;                  /**< level crossed the speech floor */
-    char     transcript[TIERCEL_PG_TEXT_MAX];
-    char     answer[TIERCEL_PG_TEXT_MAX];   /**< "" when the reply streamed */
     char     error[64];                     /**< human-readable, for the hint */
     uint32_t phase_ms;                      /**< time in the current phase */
 } tiercel_pg_status_t;
 
 esp_err_t tiercel_peregrine_init(void);
+
+/** What was heard and what Peregrine answered, each copied into a buffer of
+ *  TIERCEL_PG_TEXT_MAX bytes (either may be NULL). The answer is "" when the
+ *  reply was streamed and no text came with it. */
+void tiercel_peregrine_text(char *transcript, char *answer);
 
 /** From Headwaters' services config. The CA (PEM) is copied, so the caller's
  *  buffer can go once this returns. */

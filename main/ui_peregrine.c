@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "esp_timer.h"
 
 #include "tiercel_audio.h"
@@ -30,6 +31,8 @@ static const char *TAG = "ui.peregrine";
 #define VOL_SHOW_MS     1500      /* the rim stays up this long after a turn */
 #define ANIM_MS         40        /* ring and spinner frame rate */
 #define RING_HALF       30        /* ticks per side of 12 o'clock */
+#define READ_HOLD_MS    1500      /* first two lines stay put this long */
+#define READ_PX_PER_S   8         /* ~ a 16 px line per 2 s: speaking pace */
 
 #define G_MIC    "\xEF\x84\xB0"   /* 0xF130 microphone  */
 #define G_VOLUME "\xEF\x80\xA8"   /* 0xF028 volume-high */
@@ -44,6 +47,55 @@ static const char *TAG = "ui.peregrine";
 static int64_t s_vol_at;
 static bool    s_vol_dirty;
 static int32_t s_ring;           /* lit ticks per side, 0..RING_HALF */
+/* PSRAM, TIERCEL_PG_TEXT_MAX each: up to half a kilobyte of reply text is
+ * too much for the LVGL task's stack at 25 Hz. */
+static char   *s_q_text;
+static char   *s_a_text;
+
+/* Read-along: pg_a is the whole answer at its natural height inside the
+ * two-line pg_a_win, and the WINDOW is scrolled down through it. Scroll
+ * offset is content state, like any list's -- no widget is moved or resized,
+ * so the canvas and the device agree on every box. The window is not
+ * SCROLLABLE, which only stops touch (and scrollbars): a swipe can never
+ * move it, and LVGL scrolls it programmatically regardless. It goes back to
+ * the top whenever the answer changes or leaves the screen. */
+static int64_t s_read_t0;
+static int32_t s_read_over;      /* px the label is taller than the window */
+static int32_t s_read_y;         /* current upward offset, px */
+
+static void read_set(int32_t y)
+{
+    if (y != s_read_y) {
+        s_read_y = y;
+        lv_obj_scroll_to_y(objects.pg_a_win, y, LV_ANIM_OFF);
+    }
+}
+
+/* Call with the answer about to be shown; sets it and moves the window. */
+static void read_along(const char *a)
+{
+    const char *cur = lv_label_get_text(objects.pg_a);
+    if (!cur || strcmp(cur, a) != 0) {
+        ui_lv_set_text(objects.pg_a, a);
+        read_set(0);
+        s_read_t0 = esp_timer_get_time();
+        s_read_over = 0;
+        if (a[0]) {
+            lv_obj_update_layout(objects.pg_a);
+            s_read_over = lv_obj_get_height(objects.pg_a) -
+                          lv_obj_get_content_height(objects.pg_a_win);
+        }
+    }
+    int32_t y = 0;
+    if (s_read_over > 0) {
+        const int64_t ms = (esp_timer_get_time() - s_read_t0) / 1000 - READ_HOLD_MS;
+        if (ms > 0) {
+            y = (int32_t)(ms * READ_PX_PER_S / 1000);
+            y = y > s_read_over ? s_read_over : y;
+        }
+    }
+    read_set(y);
+}
 
 bool ui_peregrine_busy(void)
 {
@@ -101,11 +153,13 @@ static void paint(void)
         break;
     case TIERCEL_PG_SPEAKING:
         eyebrow = "SPEAKING"; live = true; orb = ORB_SPEAK; glyph = G_VOLUME;
-        q = st.transcript; a = st.answer; q_st = LV_STATE_DISABLED;
+        tiercel_peregrine_text(s_q_text, s_a_text);
+        q = s_q_text; a = s_a_text; q_st = LV_STATE_DISABLED;
         hint = "Tap to stop";
         break;
     case TIERCEL_PG_DONE:
-        q = st.transcript; a = st.answer; q_st = LV_STATE_DISABLED;
+        tiercel_peregrine_text(s_q_text, s_a_text);
+        q = s_q_text; a = s_a_text; q_st = LV_STATE_DISABLED;
         hint = "Tap to ask again";
         break;
     case TIERCEL_PG_ERROR:
@@ -123,7 +177,7 @@ static void paint(void)
     ui_lv_set_hidden(objects.pg_spin_arc, !spin);
     ui_lv_set_text(objects.pg_q, q);
     ui_lv_set_state_in(objects.pg_q, LV_STATE_CHECKED | LV_STATE_DISABLED, q_st);
-    ui_lv_set_text(objects.pg_a, a);
+    read_along(a);
 
     /* The volume rim takes the hint line's place while the knob is moving. */
     const bool vol = (esp_timer_get_time() - s_vol_at) / 1000 < VOL_SHOW_MS;
@@ -151,15 +205,21 @@ static void paint(void)
 static void anim_timer_cb(lv_timer_t *t)
 {
     (void)t;
+    if (!s_q_text || !s_a_text) {
+        return;
+    }
     if (ui_nav_current() == TIERCEL_SCREEN_PEREGRINE) {
         paint();
     } else {
         s_ring = 0;
+        read_set(0);            /* off screen: back to the authored layout */
     }
 }
 
 void ui_peregrine_init(void)
 {
+    s_q_text = heap_caps_calloc(1, TIERCEL_PG_TEXT_MAX, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    s_a_text = heap_caps_calloc(1, TIERCEL_PG_TEXT_MAX, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     lv_timer_create(anim_timer_cb, ANIM_MS, NULL);
 }
 

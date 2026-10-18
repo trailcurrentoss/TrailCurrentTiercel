@@ -213,6 +213,7 @@ typedef struct _objects_t {
     lv_obj_t *pg_orb;
     lv_obj_t *pg_orb_icon;
     lv_obj_t *pg_q;
+    lv_obj_t *pg_a_win;
     lv_obj_t *pg_a;
     lv_obj_t *pg_hint;
     lv_obj_t *pg_vol;

@@ -2110,21 +2110,34 @@ void create_screen_page_peregrine() {
             // pg_q
             lv_obj_t *obj = lv_label_create(parent_obj);
             objects.pg_q = obj;
-            lv_obj_set_pos(obj, 66, 238);
-            lv_obj_set_size(obj, 228, 40);
+            lv_obj_set_pos(obj, 66, 258);
+            lv_obj_set_size(obj, 228, 18);
+            lv_label_set_long_mode(obj, LV_LABEL_LONG_SCROLL_CIRCULAR);
             add_style_pg_q(obj);
             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_label_set_text_static(obj, "Tap to talk");
         }
         {
-            // pg_a
-            lv_obj_t *obj = lv_label_create(parent_obj);
-            objects.pg_a = obj;
-            lv_obj_set_pos(obj, 66, 278);
-            lv_obj_set_size(obj, 228, 40);
-            add_style_pg_a(obj);
-            lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_label_set_text_static(obj, "");
+            // pg_a_win
+            lv_obj_t *obj = lv_obj_create(parent_obj);
+            objects.pg_a_win = obj;
+            lv_obj_set_pos(obj, 66, 276);
+            lv_obj_set_size(obj, 228, 34);
+            lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
+            add_style_plain(obj);
+            {
+                lv_obj_t *parent_obj = obj;
+                {
+                    // pg_a
+                    lv_obj_t *obj = lv_label_create(parent_obj);
+                    objects.pg_a = obj;
+                    lv_obj_set_pos(obj, 0, 0);
+                    lv_obj_set_size(obj, 228, LV_SIZE_CONTENT);
+                    add_style_pg_a(obj);
+                    lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_label_set_text_static(obj, "");
+                }
+            }
         }
         {
             // pg_hint
