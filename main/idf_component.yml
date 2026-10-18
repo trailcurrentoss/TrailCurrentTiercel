@@ -1,0 +1,11 @@
+## Tiercel main component dependencies.
+##
+## LVGL and esp_lvgl_port are pinned in components/tiercel_board -- they must
+## move together with lvglVersion in GUI/Tiercel.eez-project, and keeping the
+## pin in one place is what stops them drifting apart.
+dependencies:
+  idf: ">=5.4"
+  # mDNS for the Headwaters discovery handshake (_trailcurrent._tcp, GET
+  # /discovery/confirm). See docs/mqtt.md.
+  espressif/mdns:
+    version: "^1.2"

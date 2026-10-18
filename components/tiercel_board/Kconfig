@@ -1,0 +1,59 @@
+menu "Tiercel board"
+
+    config TIERCEL_KNOB_INVERT
+        bool "Invert knob direction"
+        default n
+        help
+            Swap clockwise and anticlockwise. The knob's A contact is wired as
+            clockwise on the Waveshare 1.8" module; set this only if a unit
+            turns the wrong way.
+
+    config TIERCEL_HAPTIC_LRA
+        bool "Drive the haptic motor as an LRA"
+        default n
+        help
+            The schematic labels the motor nets LRA_P/LRA_N, but Waveshare's
+            demo drives the DRV2605 in ERM open-loop mode and that works on
+            the units tested. Enable this (and set the library to 6, the LRA
+            library) if a unit feels weak.
+
+    config TIERCEL_HAPTIC_LIBRARY
+        int "DRV2605 waveform library"
+        range 1 7
+        default 5
+        help
+            1-5 are ERM libraries, 6 is LRA, 7 is the 4.5V ERM library. 5 is
+            what Waveshare's demo selects.
+
+    config TIERCEL_HAPTIC_LIMIT_EFFECT
+        int "Effect for a knob value at its limit"
+        range 1 123
+        default 1
+        help
+            Played on every extra detent once a knob-adjusted value is at its
+            minimum or maximum. 1 is "Strong Click 100%" in the DRV2605 ROM
+            library table.
+
+    config TIERCEL_HAPTIC_TAP_EFFECT
+        int "Effect for an accepted tap"
+        range 1 123
+        default 24
+        help
+            24 is "Sharp Tick 1 100%".
+
+    config TIERCEL_HAPTIC_CONFIRM_EFFECT
+        int "Effect for a committed change"
+        range 1 123
+        default 10
+        help
+            10 is "Double Click 100%". Played when something takes effect --
+            a device toggles, a mode is set.
+
+    config TIERCEL_HAPTIC_ALERT_EFFECT
+        int "Effect for an alarm"
+        range 1 123
+        default 47
+        help
+            47 is "Buzz 1 100%".
+
+endmenu

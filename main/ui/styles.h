@@ -1,0 +1,758 @@
+#ifndef EEZ_LVGL_UI_STYLES_H
+#define EEZ_LVGL_UI_STYLES_H
+
+#include <lvgl.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Style: ScreenRoot
+lv_style_t *get_style_screen_root_MAIN_DEFAULT();
+void add_style_screen_root(lv_obj_t *obj);
+void remove_style_screen_root(lv_obj_t *obj);
+
+// Style: Card
+lv_style_t *get_style_card_MAIN_DEFAULT();
+lv_style_t *get_style_card_MAIN_CHECKED();
+void add_style_card(lv_obj_t *obj);
+void remove_style_card(lv_obj_t *obj);
+
+// Style: CardSelected
+lv_style_t *get_style_card_selected_MAIN_DEFAULT();
+void add_style_card_selected(lv_obj_t *obj);
+void remove_style_card_selected(lv_obj_t *obj);
+
+// Style: LabelTitle
+lv_style_t *get_style_label_title_MAIN_DEFAULT();
+void add_style_label_title(lv_obj_t *obj);
+void remove_style_label_title(lv_obj_t *obj);
+
+// Style: LabelBody
+lv_style_t *get_style_label_body_MAIN_DEFAULT();
+void add_style_label_body(lv_obj_t *obj);
+void remove_style_label_body(lv_obj_t *obj);
+
+// Style: LabelMuted
+lv_style_t *get_style_label_muted_MAIN_DEFAULT();
+void add_style_label_muted(lv_obj_t *obj);
+void remove_style_label_muted(lv_obj_t *obj);
+
+// Style: LabelHero
+lv_style_t *get_style_label_hero_MAIN_DEFAULT();
+void add_style_label_hero(lv_obj_t *obj);
+void remove_style_label_hero(lv_obj_t *obj);
+
+// Style: ButtonPrimary
+lv_style_t *get_style_button_primary_MAIN_DEFAULT();
+void add_style_button_primary(lv_obj_t *obj);
+void remove_style_button_primary(lv_obj_t *obj);
+
+// Style: ButtonNeutral
+lv_style_t *get_style_button_neutral_MAIN_DEFAULT();
+void add_style_button_neutral(lv_obj_t *obj);
+void remove_style_button_neutral(lv_obj_t *obj);
+
+// Style: ScaleRing
+lv_style_t *get_style_scale_ring_MAIN_DEFAULT();
+lv_style_t *get_style_scale_ring_ITEMS_DEFAULT();
+lv_style_t *get_style_scale_ring_INDICATOR_DEFAULT();
+void add_style_scale_ring(lv_obj_t *obj);
+void remove_style_scale_ring(lv_obj_t *obj);
+
+// Style: LabelIcon
+lv_style_t *get_style_label_icon_MAIN_DEFAULT();
+void add_style_label_icon(lv_obj_t *obj);
+void remove_style_label_icon(lv_obj_t *obj);
+
+// Style: LabelIconSm
+lv_style_t *get_style_label_icon_sm_MAIN_DEFAULT();
+void add_style_label_icon_sm(lv_obj_t *obj);
+void remove_style_label_icon_sm(lv_obj_t *obj);
+
+// Style: HeroTile
+lv_style_t *get_style_hero_tile_MAIN_DEFAULT();
+void add_style_hero_tile(lv_obj_t *obj);
+void remove_style_hero_tile(lv_obj_t *obj);
+
+// Style: HeroIcon
+lv_style_t *get_style_hero_icon_MAIN_DEFAULT();
+void add_style_hero_icon(lv_obj_t *obj);
+void remove_style_hero_icon(lv_obj_t *obj);
+
+// Style: NeighbourIcon
+lv_style_t *get_style_neighbour_icon_MAIN_DEFAULT();
+void add_style_neighbour_icon(lv_obj_t *obj);
+void remove_style_neighbour_icon(lv_obj_t *obj);
+
+// Style: DeviceTile
+lv_style_t *get_style_device_tile_MAIN_DEFAULT();
+lv_style_t *get_style_device_tile_MAIN_CHECKED();
+void add_style_device_tile(lv_obj_t *obj);
+void remove_style_device_tile(lv_obj_t *obj);
+
+// Style: DeviceIcon
+lv_style_t *get_style_device_icon_MAIN_DEFAULT();
+lv_style_t *get_style_device_icon_MAIN_CHECKED();
+void add_style_device_icon(lv_obj_t *obj);
+void remove_style_device_icon(lv_obj_t *obj);
+
+// Style: DeviceNeighbourIcon
+lv_style_t *get_style_device_neighbour_icon_MAIN_DEFAULT();
+void add_style_device_neighbour_icon(lv_obj_t *obj);
+void remove_style_device_neighbour_icon(lv_obj_t *obj);
+
+// Style: AlertRing
+lv_style_t *get_style_alert_ring_MAIN_DEFAULT();
+void add_style_alert_ring(lv_obj_t *obj);
+void remove_style_alert_ring(lv_obj_t *obj);
+
+// Style: LevelWell
+lv_style_t *get_style_level_well_MAIN_DEFAULT();
+void add_style_level_well(lv_obj_t *obj);
+void remove_style_level_well(lv_obj_t *obj);
+
+// Style: LevelRing
+lv_style_t *get_style_level_ring_MAIN_DEFAULT();
+void add_style_level_ring(lv_obj_t *obj);
+void remove_style_level_ring(lv_obj_t *obj);
+
+// Style: LevelLine
+lv_style_t *get_style_level_line_MAIN_DEFAULT();
+void add_style_level_line(lv_obj_t *obj);
+void remove_style_level_line(lv_obj_t *obj);
+
+// Style: LevelBubble
+lv_style_t *get_style_level_bubble_MAIN_DEFAULT();
+void add_style_level_bubble(lv_obj_t *obj);
+void remove_style_level_bubble(lv_obj_t *obj);
+
+// Style: ClimateTicks
+lv_style_t *get_style_climate_ticks_MAIN_DEFAULT();
+lv_style_t *get_style_climate_ticks_INDICATOR_DEFAULT();
+lv_style_t *get_style_climate_ticks_ITEMS_DEFAULT();
+void add_style_climate_ticks(lv_obj_t *obj);
+void remove_style_climate_ticks(lv_obj_t *obj);
+
+// Style: ClimateSectionHeat
+lv_style_t *get_style_climate_section_heat_MAIN_DEFAULT();
+lv_style_t *get_style_climate_section_heat_INDICATOR_DEFAULT();
+void add_style_climate_section_heat(lv_obj_t *obj);
+void remove_style_climate_section_heat(lv_obj_t *obj);
+
+// Style: ClimateSectionCool
+lv_style_t *get_style_climate_section_cool_MAIN_DEFAULT();
+lv_style_t *get_style_climate_section_cool_INDICATOR_DEFAULT();
+void add_style_climate_section_cool(lv_obj_t *obj);
+void remove_style_climate_section_cool(lv_obj_t *obj);
+
+// Style: ClimateSectionHold
+lv_style_t *get_style_climate_section_hold_MAIN_DEFAULT();
+lv_style_t *get_style_climate_section_hold_INDICATOR_DEFAULT();
+void add_style_climate_section_hold(lv_obj_t *obj);
+void remove_style_climate_section_hold(lv_obj_t *obj);
+
+// Style: ClimateNeedleInside
+lv_style_t *get_style_climate_needle_inside_MAIN_DEFAULT();
+void add_style_climate_needle_inside(lv_obj_t *obj);
+void remove_style_climate_needle_inside(lv_obj_t *obj);
+
+// Style: ClimateNeedleTarget
+lv_style_t *get_style_climate_needle_target_MAIN_DEFAULT();
+void add_style_climate_needle_target(lv_obj_t *obj);
+void remove_style_climate_needle_target(lv_obj_t *obj);
+
+// Style: ClimateNum
+lv_style_t *get_style_climate_num_MAIN_DEFAULT();
+void add_style_climate_num(lv_obj_t *obj);
+void remove_style_climate_num(lv_obj_t *obj);
+
+// Style: ClimateModeText
+lv_style_t *get_style_climate_mode_text_MAIN_DEFAULT();
+lv_style_t *get_style_climate_mode_text_MAIN_CHECKED();
+lv_style_t *get_style_climate_mode_text_MAIN_PRESSED();
+lv_style_t *get_style_climate_mode_text_MAIN_DISABLED();
+void add_style_climate_mode_text(lv_obj_t *obj);
+void remove_style_climate_mode_text(lv_obj_t *obj);
+
+// Style: ClimateModeIcon
+lv_style_t *get_style_climate_mode_icon_MAIN_DEFAULT();
+lv_style_t *get_style_climate_mode_icon_MAIN_CHECKED();
+lv_style_t *get_style_climate_mode_icon_MAIN_PRESSED();
+lv_style_t *get_style_climate_mode_icon_MAIN_DISABLED();
+void add_style_climate_mode_icon(lv_obj_t *obj);
+void remove_style_climate_mode_icon(lv_obj_t *obj);
+
+// Style: EnergyArc
+lv_style_t *get_style_energy_arc_MAIN_DEFAULT();
+lv_style_t *get_style_energy_arc_INDICATOR_DEFAULT();
+lv_style_t *get_style_energy_arc_INDICATOR_CHECKED();
+lv_style_t *get_style_energy_arc_INDICATOR_PRESSED();
+lv_style_t *get_style_energy_arc_INDICATOR_DISABLED();
+lv_style_t *get_style_energy_arc_KNOB_DEFAULT();
+void add_style_energy_arc(lv_obj_t *obj);
+void remove_style_energy_arc(lv_obj_t *obj);
+
+// Style: EnergyHead
+lv_style_t *get_style_energy_head_MAIN_DEFAULT();
+lv_style_t *get_style_energy_head_MAIN_CHECKED();
+lv_style_t *get_style_energy_head_MAIN_PRESSED();
+void add_style_energy_head(lv_obj_t *obj);
+void remove_style_energy_head(lv_obj_t *obj);
+
+// Style: EnergyHeadIcon
+lv_style_t *get_style_energy_head_icon_MAIN_DEFAULT();
+lv_style_t *get_style_energy_head_icon_MAIN_CHECKED();
+lv_style_t *get_style_energy_head_icon_MAIN_PRESSED();
+void add_style_energy_head_icon(lv_obj_t *obj);
+void remove_style_energy_head_icon(lv_obj_t *obj);
+
+// Style: EnergyUnit
+lv_style_t *get_style_energy_unit_MAIN_DEFAULT();
+void add_style_energy_unit(lv_obj_t *obj);
+void remove_style_energy_unit(lv_obj_t *obj);
+
+// Style: SettingsTile
+lv_style_t *get_style_settings_tile_MAIN_DEFAULT();
+lv_style_t *get_style_settings_tile_MAIN_CHECKED();
+void add_style_settings_tile(lv_obj_t *obj);
+void remove_style_settings_tile(lv_obj_t *obj);
+
+// Style: SettingsIcon
+lv_style_t *get_style_settings_icon_MAIN_DEFAULT();
+lv_style_t *get_style_settings_icon_MAIN_CHECKED();
+void add_style_settings_icon(lv_obj_t *obj);
+void remove_style_settings_icon(lv_obj_t *obj);
+
+// Style: SettingsValue
+lv_style_t *get_style_settings_value_MAIN_DEFAULT();
+lv_style_t *get_style_settings_value_MAIN_CHECKED();
+lv_style_t *get_style_settings_value_MAIN_PRESSED();
+lv_style_t *get_style_settings_value_MAIN_DISABLED();
+void add_style_settings_value(lv_obj_t *obj);
+void remove_style_settings_value(lv_obj_t *obj);
+
+// Style: ListRow
+lv_style_t *get_style_list_row_MAIN_DEFAULT();
+lv_style_t *get_style_list_row_MAIN_CHECKED();
+void add_style_list_row(lv_obj_t *obj);
+void remove_style_list_row(lv_obj_t *obj);
+
+// Style: GuideDot
+lv_style_t *get_style_guide_dot_MAIN_DEFAULT();
+lv_style_t *get_style_guide_dot_MAIN_DISABLED();
+lv_style_t *get_style_guide_dot_MAIN_CHECKED();
+void add_style_guide_dot(lv_obj_t *obj);
+void remove_style_guide_dot(lv_obj_t *obj);
+
+// Style: FaceTicks
+lv_style_t *get_style_face_ticks_MAIN_DEFAULT();
+lv_style_t *get_style_face_ticks_ITEMS_DEFAULT();
+lv_style_t *get_style_face_ticks_INDICATOR_DEFAULT();
+void add_style_face_ticks(lv_obj_t *obj);
+void remove_style_face_ticks(lv_obj_t *obj);
+
+// Style: FaceSecTicks
+lv_style_t *get_style_face_sec_ticks_MAIN_DEFAULT();
+lv_style_t *get_style_face_sec_ticks_ITEMS_DEFAULT();
+lv_style_t *get_style_face_sec_ticks_INDICATOR_DEFAULT();
+void add_style_face_sec_ticks(lv_obj_t *obj);
+void remove_style_face_sec_ticks(lv_obj_t *obj);
+
+// Style: FaceSecOn
+lv_style_t *get_style_face_sec_on_MAIN_DEFAULT();
+lv_style_t *get_style_face_sec_on_ITEMS_DEFAULT();
+lv_style_t *get_style_face_sec_on_INDICATOR_DEFAULT();
+void add_style_face_sec_on(lv_obj_t *obj);
+void remove_style_face_sec_on(lv_obj_t *obj);
+
+// Style: FaceHandH
+lv_style_t *get_style_face_hand_h_MAIN_DEFAULT();
+void add_style_face_hand_h(lv_obj_t *obj);
+void remove_style_face_hand_h(lv_obj_t *obj);
+
+// Style: FaceHandM
+lv_style_t *get_style_face_hand_m_MAIN_DEFAULT();
+void add_style_face_hand_m(lv_obj_t *obj);
+void remove_style_face_hand_m(lv_obj_t *obj);
+
+// Style: FaceHandS
+lv_style_t *get_style_face_hand_s_MAIN_DEFAULT();
+void add_style_face_hand_s(lv_obj_t *obj);
+void remove_style_face_hand_s(lv_obj_t *obj);
+
+// Style: FaceCap
+lv_style_t *get_style_face_cap_MAIN_DEFAULT();
+void add_style_face_cap(lv_obj_t *obj);
+void remove_style_face_cap(lv_obj_t *obj);
+
+// Style: FaceCapIn
+lv_style_t *get_style_face_cap_in_MAIN_DEFAULT();
+void add_style_face_cap_in(lv_obj_t *obj);
+void remove_style_face_cap_in(lv_obj_t *obj);
+
+// Style: FaceMinArc
+lv_style_t *get_style_face_min_arc_MAIN_DEFAULT();
+lv_style_t *get_style_face_min_arc_INDICATOR_DEFAULT();
+lv_style_t *get_style_face_min_arc_KNOB_DEFAULT();
+void add_style_face_min_arc(lv_obj_t *obj);
+void remove_style_face_min_arc(lv_obj_t *obj);
+
+// Style: FaceRingArc
+lv_style_t *get_style_face_ring_arc_MAIN_DEFAULT();
+lv_style_t *get_style_face_ring_arc_INDICATOR_DEFAULT();
+lv_style_t *get_style_face_ring_arc_KNOB_DEFAULT();
+void add_style_face_ring_arc(lv_obj_t *obj);
+void remove_style_face_ring_arc(lv_obj_t *obj);
+
+// Style: FaceTextLg
+lv_style_t *get_style_face_text_lg_MAIN_DEFAULT();
+void add_style_face_text_lg(lv_obj_t *obj);
+void remove_style_face_text_lg(lv_obj_t *obj);
+
+// Style: FaceTextMd
+lv_style_t *get_style_face_text_md_MAIN_DEFAULT();
+void add_style_face_text_md(lv_obj_t *obj);
+void remove_style_face_text_md(lv_obj_t *obj);
+
+// Style: FaceTextMuted
+lv_style_t *get_style_face_text_muted_MAIN_DEFAULT();
+void add_style_face_text_muted(lv_obj_t *obj);
+void remove_style_face_text_muted(lv_obj_t *obj);
+
+// Style: FaceStat
+lv_style_t *get_style_face_stat_MAIN_DEFAULT();
+void add_style_face_stat(lv_obj_t *obj);
+void remove_style_face_stat(lv_obj_t *obj);
+
+// Style: FaceStatIcon
+lv_style_t *get_style_face_stat_icon_MAIN_DEFAULT();
+void add_style_face_stat_icon(lv_obj_t *obj);
+void remove_style_face_stat_icon(lv_obj_t *obj);
+
+// Style: FaceBrandName
+lv_style_t *get_style_face_brand_name_MAIN_DEFAULT();
+void add_style_face_brand_name(lv_obj_t *obj);
+void remove_style_face_brand_name(lv_obj_t *obj);
+
+// Style: FaceTime
+lv_style_t *get_style_face_time_MAIN_DEFAULT();
+void add_style_face_time(lv_obj_t *obj);
+void remove_style_face_time(lv_obj_t *obj);
+
+// Style: FaceTimeSm
+lv_style_t *get_style_face_time_sm_MAIN_DEFAULT();
+void add_style_face_time_sm(lv_obj_t *obj);
+void remove_style_face_time_sm(lv_obj_t *obj);
+
+// Style: FaceAmPm
+lv_style_t *get_style_face_am_pm_MAIN_DEFAULT();
+void add_style_face_am_pm(lv_obj_t *obj);
+void remove_style_face_am_pm(lv_obj_t *obj);
+
+// Style: FaceAmPmSm
+lv_style_t *get_style_face_am_pm_sm_MAIN_DEFAULT();
+void add_style_face_am_pm_sm(lv_obj_t *obj);
+void remove_style_face_am_pm_sm(lv_obj_t *obj);
+
+// Style: FaceRingTime
+lv_style_t *get_style_face_ring_time_MAIN_DEFAULT();
+void add_style_face_ring_time(lv_obj_t *obj);
+void remove_style_face_ring_time(lv_obj_t *obj);
+
+// Style: FaceMode
+lv_style_t *get_style_face_mode_MAIN_DEFAULT();
+lv_style_t *get_style_face_mode_MAIN_CHECKED();
+lv_style_t *get_style_face_mode_MAIN_PRESSED();
+lv_style_t *get_style_face_mode_MAIN_DISABLED();
+void add_style_face_mode(lv_obj_t *obj);
+void remove_style_face_mode(lv_obj_t *obj);
+
+// Style: FaceModeIcon
+lv_style_t *get_style_face_mode_icon_MAIN_DEFAULT();
+lv_style_t *get_style_face_mode_icon_MAIN_CHECKED();
+lv_style_t *get_style_face_mode_icon_MAIN_PRESSED();
+lv_style_t *get_style_face_mode_icon_MAIN_DISABLED();
+void add_style_face_mode_icon(lv_obj_t *obj);
+void remove_style_face_mode_icon(lv_obj_t *obj);
+
+// Style: FaceHourNum
+lv_style_t *get_style_face_hour_num_MAIN_DEFAULT();
+lv_style_t *get_style_face_hour_num_MAIN_CHECKED();
+void add_style_face_hour_num(lv_obj_t *obj);
+void remove_style_face_hour_num(lv_obj_t *obj);
+
+// Style: FacePreview
+lv_style_t *get_style_face_preview_MAIN_DEFAULT();
+void add_style_face_preview(lv_obj_t *obj);
+void remove_style_face_preview(lv_obj_t *obj);
+
+// Style: FaceScaled
+lv_style_t *get_style_face_scaled_MAIN_DEFAULT();
+void add_style_face_scaled(lv_obj_t *obj);
+void remove_style_face_scaled(lv_obj_t *obj);
+
+// Style: FacePickSub
+lv_style_t *get_style_face_pick_sub_MAIN_DEFAULT();
+lv_style_t *get_style_face_pick_sub_MAIN_CHECKED();
+void add_style_face_pick_sub(lv_obj_t *obj);
+void remove_style_face_pick_sub(lv_obj_t *obj);
+
+// Style: MenuName
+lv_style_t *get_style_menu_name_MAIN_DEFAULT();
+void add_style_menu_name(lv_obj_t *obj);
+void remove_style_menu_name(lv_obj_t *obj);
+
+// Style: MenuSummary
+lv_style_t *get_style_menu_summary_MAIN_DEFAULT();
+void add_style_menu_summary(lv_obj_t *obj);
+void remove_style_menu_summary(lv_obj_t *obj);
+
+// Style: ModeRowHeat
+lv_style_t *get_style_mode_row_heat_MAIN_DEFAULT();
+lv_style_t *get_style_mode_row_heat_MAIN_CHECKED();
+void add_style_mode_row_heat(lv_obj_t *obj);
+void remove_style_mode_row_heat(lv_obj_t *obj);
+
+// Style: ModeRowCool
+lv_style_t *get_style_mode_row_cool_MAIN_DEFAULT();
+lv_style_t *get_style_mode_row_cool_MAIN_CHECKED();
+void add_style_mode_row_cool(lv_obj_t *obj);
+void remove_style_mode_row_cool(lv_obj_t *obj);
+
+// Style: ModeRowAuto
+lv_style_t *get_style_mode_row_auto_MAIN_DEFAULT();
+lv_style_t *get_style_mode_row_auto_MAIN_CHECKED();
+void add_style_mode_row_auto(lv_obj_t *obj);
+void remove_style_mode_row_auto(lv_obj_t *obj);
+
+// Style: ModeRowOff
+lv_style_t *get_style_mode_row_off_MAIN_DEFAULT();
+lv_style_t *get_style_mode_row_off_MAIN_CHECKED();
+void add_style_mode_row_off(lv_obj_t *obj);
+void remove_style_mode_row_off(lv_obj_t *obj);
+
+// Style: ModeRowIcon
+lv_style_t *get_style_mode_row_icon_MAIN_DEFAULT();
+void add_style_mode_row_icon(lv_obj_t *obj);
+void remove_style_mode_row_icon(lv_obj_t *obj);
+
+// Style: ModeRowText
+lv_style_t *get_style_mode_row_text_MAIN_DEFAULT();
+void add_style_mode_row_text(lv_obj_t *obj);
+void remove_style_mode_row_text(lv_obj_t *obj);
+
+// Style: LabelBodyMuted
+lv_style_t *get_style_label_body_muted_MAIN_DEFAULT();
+void add_style_label_body_muted(lv_obj_t *obj);
+void remove_style_label_body_muted(lv_obj_t *obj);
+
+// Style: EnergyDot
+lv_style_t *get_style_energy_dot_MAIN_DEFAULT();
+lv_style_t *get_style_energy_dot_MAIN_CHECKED();
+void add_style_energy_dot(lv_obj_t *obj);
+void remove_style_energy_dot(lv_obj_t *obj);
+
+// Style: AlertIcon
+lv_style_t *get_style_alert_icon_MAIN_DEFAULT();
+void add_style_alert_icon(lv_obj_t *obj);
+void remove_style_alert_icon(lv_obj_t *obj);
+
+// Style: Dot
+lv_style_t *get_style_dot_MAIN_DEFAULT();
+lv_style_t *get_style_dot_MAIN_CHECKED();
+void add_style_dot(lv_obj_t *obj);
+void remove_style_dot(lv_obj_t *obj);
+
+// Style: Plain
+lv_style_t *get_style_plain_MAIN_DEFAULT();
+void add_style_plain(lv_obj_t *obj);
+void remove_style_plain(lv_obj_t *obj);
+
+// Style: Pivot
+lv_style_t *get_style_pivot_MAIN_DEFAULT();
+void add_style_pivot(lv_obj_t *obj);
+void remove_style_pivot(lv_obj_t *obj);
+
+// Style: HandHour
+lv_style_t *get_style_hand_hour_MAIN_DEFAULT();
+void add_style_hand_hour(lv_obj_t *obj);
+void remove_style_hand_hour(lv_obj_t *obj);
+
+// Style: HandMinute
+lv_style_t *get_style_hand_minute_MAIN_DEFAULT();
+void add_style_hand_minute(lv_obj_t *obj);
+void remove_style_hand_minute(lv_obj_t *obj);
+
+// Style: HandSecond
+lv_style_t *get_style_hand_second_MAIN_DEFAULT();
+void add_style_hand_second(lv_obj_t *obj);
+void remove_style_hand_second(lv_obj_t *obj);
+
+// Style: BarLevel
+lv_style_t *get_style_bar_level_MAIN_DEFAULT();
+lv_style_t *get_style_bar_level_INDICATOR_DEFAULT();
+void add_style_bar_level(lv_obj_t *obj);
+void remove_style_bar_level(lv_obj_t *obj);
+
+// Style: BarFresh
+lv_style_t *get_style_bar_fresh_MAIN_DEFAULT();
+lv_style_t *get_style_bar_fresh_INDICATOR_DEFAULT();
+void add_style_bar_fresh(lv_obj_t *obj);
+void remove_style_bar_fresh(lv_obj_t *obj);
+
+// Style: BarGrey
+lv_style_t *get_style_bar_grey_MAIN_DEFAULT();
+lv_style_t *get_style_bar_grey_INDICATOR_DEFAULT();
+void add_style_bar_grey(lv_obj_t *obj);
+void remove_style_bar_grey(lv_obj_t *obj);
+
+// Style: BarBlack
+lv_style_t *get_style_bar_black_MAIN_DEFAULT();
+lv_style_t *get_style_bar_black_INDICATOR_DEFAULT();
+void add_style_bar_black(lv_obj_t *obj);
+void remove_style_bar_black(lv_obj_t *obj);
+
+// Style: Field
+lv_style_t *get_style_field_MAIN_DEFAULT();
+lv_style_t *get_style_field_TEXTAREA_PLACEHOLDER_DEFAULT();
+lv_style_t *get_style_field_CURSOR_DEFAULT();
+void add_style_field(lv_obj_t *obj);
+void remove_style_field(lv_obj_t *obj);
+
+// Style: ArcValue
+lv_style_t *get_style_arc_value_MAIN_DEFAULT();
+lv_style_t *get_style_arc_value_INDICATOR_DEFAULT();
+void add_style_arc_value(lv_obj_t *obj);
+void remove_style_arc_value(lv_obj_t *obj);
+
+// Style: ArcThin
+lv_style_t *get_style_arc_thin_MAIN_DEFAULT();
+lv_style_t *get_style_arc_thin_INDICATOR_DEFAULT();
+lv_style_t *get_style_arc_thin_INDICATOR_CHECKED();
+lv_style_t *get_style_arc_thin_INDICATOR_DISABLED();
+lv_style_t *get_style_arc_thin_INDICATOR_PRESSED();
+lv_style_t *get_style_arc_thin_KNOB_DEFAULT();
+void add_style_arc_thin(lv_obj_t *obj);
+void remove_style_arc_thin(lv_obj_t *obj);
+
+// Style: LabelEyebrow
+lv_style_t *get_style_label_eyebrow_MAIN_DEFAULT();
+void add_style_label_eyebrow(lv_obj_t *obj);
+void remove_style_label_eyebrow(lv_obj_t *obj);
+
+// Style: LabelHeroXL
+lv_style_t *get_style_label_hero_xl_MAIN_DEFAULT();
+void add_style_label_hero_xl(lv_obj_t *obj);
+void remove_style_label_hero_xl(lv_obj_t *obj);
+
+// Style: LabelMetric
+lv_style_t *get_style_label_metric_MAIN_DEFAULT();
+void add_style_label_metric(lv_obj_t *obj);
+void remove_style_label_metric(lv_obj_t *obj);
+
+// Style: LabelStatus
+lv_style_t *get_style_label_status_MAIN_DEFAULT();
+lv_style_t *get_style_label_status_MAIN_CHECKED();
+lv_style_t *get_style_label_status_MAIN_DISABLED();
+lv_style_t *get_style_label_status_MAIN_PRESSED();
+void add_style_label_status(lv_obj_t *obj);
+void remove_style_label_status(lv_obj_t *obj);
+
+// Style: TapTarget
+lv_style_t *get_style_tap_target_MAIN_DEFAULT();
+lv_style_t *get_style_tap_target_MAIN_PRESSED();
+void add_style_tap_target(lv_obj_t *obj);
+void remove_style_tap_target(lv_obj_t *obj);
+
+// Style: BackChip
+lv_style_t *get_style_back_chip_MAIN_DEFAULT();
+lv_style_t *get_style_back_chip_MAIN_PRESSED();
+void add_style_back_chip(lv_obj_t *obj);
+void remove_style_back_chip(lv_obj_t *obj);
+
+// Style: BackChipIcon
+lv_style_t *get_style_back_chip_icon_MAIN_DEFAULT();
+void add_style_back_chip_icon(lv_obj_t *obj);
+void remove_style_back_chip_icon(lv_obj_t *obj);
+
+// Style: GestureArc
+lv_style_t *get_style_gesture_arc_MAIN_DEFAULT();
+lv_style_t *get_style_gesture_arc_INDICATOR_DEFAULT();
+lv_style_t *get_style_gesture_arc_KNOB_DEFAULT();
+void add_style_gesture_arc(lv_obj_t *obj);
+void remove_style_gesture_arc(lv_obj_t *obj);
+
+// Style: VolArc
+lv_style_t *get_style_vol_arc_MAIN_DEFAULT();
+lv_style_t *get_style_vol_arc_INDICATOR_DEFAULT();
+lv_style_t *get_style_vol_arc_KNOB_DEFAULT();
+void add_style_vol_arc(lv_obj_t *obj);
+void remove_style_vol_arc(lv_obj_t *obj);
+
+// Style: ClimatePill
+lv_style_t *get_style_climate_pill_MAIN_DEFAULT();
+lv_style_t *get_style_climate_pill_MAIN_CHECKED();
+lv_style_t *get_style_climate_pill_MAIN_PRESSED();
+lv_style_t *get_style_climate_pill_MAIN_DISABLED();
+void add_style_climate_pill(lv_obj_t *obj);
+void remove_style_climate_pill(lv_obj_t *obj);
+
+// Style: PgEyebrow
+lv_style_t *get_style_pg_eyebrow_MAIN_DEFAULT();
+lv_style_t *get_style_pg_eyebrow_MAIN_CHECKED();
+void add_style_pg_eyebrow(lv_obj_t *obj);
+void remove_style_pg_eyebrow(lv_obj_t *obj);
+
+// Style: PgOrb
+lv_style_t *get_style_pg_orb_MAIN_DEFAULT();
+lv_style_t *get_style_pg_orb_MAIN_CHECKED();
+lv_style_t *get_style_pg_orb_MAIN_PRESSED();
+lv_style_t *get_style_pg_orb_MAIN_DISABLED();
+void add_style_pg_orb(lv_obj_t *obj);
+void remove_style_pg_orb(lv_obj_t *obj);
+
+// Style: PgOrbIcon
+lv_style_t *get_style_pg_orb_icon_MAIN_DEFAULT();
+lv_style_t *get_style_pg_orb_icon_MAIN_PRESSED();
+void add_style_pg_orb_icon(lv_obj_t *obj);
+void remove_style_pg_orb_icon(lv_obj_t *obj);
+
+// Style: PgRing
+lv_style_t *get_style_pg_ring_MAIN_DEFAULT();
+lv_style_t *get_style_pg_ring_INDICATOR_DEFAULT();
+lv_style_t *get_style_pg_ring_ITEMS_DEFAULT();
+void add_style_pg_ring(lv_obj_t *obj);
+void remove_style_pg_ring(lv_obj_t *obj);
+
+// Style: PgRingOn
+lv_style_t *get_style_pg_ring_on_MAIN_DEFAULT();
+lv_style_t *get_style_pg_ring_on_INDICATOR_DEFAULT();
+void add_style_pg_ring_on(lv_obj_t *obj);
+void remove_style_pg_ring_on(lv_obj_t *obj);
+
+// Style: PgSpin
+lv_style_t *get_style_pg_spin_MAIN_DEFAULT();
+lv_style_t *get_style_pg_spin_INDICATOR_DEFAULT();
+lv_style_t *get_style_pg_spin_KNOB_DEFAULT();
+void add_style_pg_spin(lv_obj_t *obj);
+void remove_style_pg_spin(lv_obj_t *obj);
+
+// Style: PgQ
+lv_style_t *get_style_pg_q_MAIN_DEFAULT();
+lv_style_t *get_style_pg_q_MAIN_CHECKED();
+lv_style_t *get_style_pg_q_MAIN_DISABLED();
+void add_style_pg_q(lv_obj_t *obj);
+void remove_style_pg_q(lv_obj_t *obj);
+
+// Style: PgA
+lv_style_t *get_style_pg_a_MAIN_DEFAULT();
+void add_style_pg_a(lv_obj_t *obj);
+void remove_style_pg_a(lv_obj_t *obj);
+
+// Style: PbSeg
+lv_style_t *get_style_pb_seg_MAIN_DEFAULT();
+void add_style_pb_seg(lv_obj_t *obj);
+void remove_style_pb_seg(lv_obj_t *obj);
+
+// Style: PbSegBtn
+lv_style_t *get_style_pb_seg_btn_MAIN_DEFAULT();
+lv_style_t *get_style_pb_seg_btn_MAIN_CHECKED();
+lv_style_t *get_style_pb_seg_btn_MAIN_PRESSED();
+void add_style_pb_seg_btn(lv_obj_t *obj);
+void remove_style_pb_seg_btn(lv_obj_t *obj);
+
+// Style: PbSegText
+lv_style_t *get_style_pb_seg_text_MAIN_DEFAULT();
+lv_style_t *get_style_pb_seg_text_MAIN_CHECKED();
+void add_style_pb_seg_text(lv_obj_t *obj);
+void remove_style_pb_seg_text(lv_obj_t *obj);
+
+// Style: PbEyebrow
+lv_style_t *get_style_pb_eyebrow_MAIN_DEFAULT();
+lv_style_t *get_style_pb_eyebrow_MAIN_CHECKED();
+void add_style_pb_eyebrow(lv_obj_t *obj);
+void remove_style_pb_eyebrow(lv_obj_t *obj);
+
+// Style: PbTitle
+lv_style_t *get_style_pb_title_MAIN_DEFAULT();
+void add_style_pb_title(lv_obj_t *obj);
+void remove_style_pb_title(lv_obj_t *obj);
+
+// Style: PbProgress
+lv_style_t *get_style_pb_progress_MAIN_DEFAULT();
+lv_style_t *get_style_pb_progress_INDICATOR_DEFAULT();
+void add_style_pb_progress(lv_obj_t *obj);
+void remove_style_pb_progress(lv_obj_t *obj);
+
+// Style: PbTime
+lv_style_t *get_style_pb_time_MAIN_DEFAULT();
+void add_style_pb_time(lv_obj_t *obj);
+void remove_style_pb_time(lv_obj_t *obj);
+
+// Style: PbFreq
+lv_style_t *get_style_pb_freq_MAIN_DEFAULT();
+void add_style_pb_freq(lv_obj_t *obj);
+void remove_style_pb_freq(lv_obj_t *obj);
+
+// Style: PbFreqUnit
+lv_style_t *get_style_pb_freq_unit_MAIN_DEFAULT();
+void add_style_pb_freq_unit(lv_obj_t *obj);
+void remove_style_pb_freq_unit(lv_obj_t *obj);
+
+// Style: PbRound
+lv_style_t *get_style_pb_round_MAIN_DEFAULT();
+lv_style_t *get_style_pb_round_MAIN_PRESSED();
+void add_style_pb_round(lv_obj_t *obj);
+void remove_style_pb_round(lv_obj_t *obj);
+
+// Style: PbRoundIcon
+lv_style_t *get_style_pb_round_icon_MAIN_DEFAULT();
+void add_style_pb_round_icon(lv_obj_t *obj);
+void remove_style_pb_round_icon(lv_obj_t *obj);
+
+// Style: PbPlay
+lv_style_t *get_style_pb_play_MAIN_DEFAULT();
+lv_style_t *get_style_pb_play_MAIN_CHECKED();
+lv_style_t *get_style_pb_play_MAIN_PRESSED();
+void add_style_pb_play(lv_obj_t *obj);
+void remove_style_pb_play(lv_obj_t *obj);
+
+// Style: PbPlayIcon
+lv_style_t *get_style_pb_play_icon_MAIN_DEFAULT();
+void add_style_pb_play_icon(lv_obj_t *obj);
+void remove_style_pb_play_icon(lv_obj_t *obj);
+
+// Style: PbChip
+lv_style_t *get_style_pb_chip_MAIN_DEFAULT();
+lv_style_t *get_style_pb_chip_MAIN_CHECKED();
+void add_style_pb_chip(lv_obj_t *obj);
+void remove_style_pb_chip(lv_obj_t *obj);
+
+// Style: PbChipIcon
+lv_style_t *get_style_pb_chip_icon_MAIN_DEFAULT();
+void add_style_pb_chip_icon(lv_obj_t *obj);
+void remove_style_pb_chip_icon(lv_obj_t *obj);
+
+// Style: PbChipText
+lv_style_t *get_style_pb_chip_text_MAIN_DEFAULT();
+void add_style_pb_chip_text(lv_obj_t *obj);
+void remove_style_pb_chip_text(lv_obj_t *obj);
+
+// Style: PbTune
+lv_style_t *get_style_pb_tune_MAIN_DEFAULT();
+lv_style_t *get_style_pb_tune_ITEMS_DEFAULT();
+lv_style_t *get_style_pb_tune_INDICATOR_DEFAULT();
+void add_style_pb_tune(lv_obj_t *obj);
+void remove_style_pb_tune(lv_obj_t *obj);
+
+// Style: PbTuneMarker
+lv_style_t *get_style_pb_tune_marker_MAIN_DEFAULT();
+void add_style_pb_tune_marker(lv_obj_t *obj);
+void remove_style_pb_tune_marker(lv_obj_t *obj);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /*EEZ_LVGL_UI_STYLES_H*/

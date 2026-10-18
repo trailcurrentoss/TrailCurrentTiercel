@@ -1,0 +1,18 @@
+idf_component_register(
+    SRCS
+        "src/tiercel_portal.c"
+        "src/portal_dns.c"
+    INCLUDE_DIRS
+        "include"
+    PRIV_INCLUDE_DIRS
+        "src"
+    REQUIRES
+        tiercel_config
+        tiercel_wifi
+        tiercel_mqtt
+        esp_http_server
+        esp_timer
+        esp_wifi
+        lwip
+        json
+)

@@ -1,0 +1,536 @@
+/*
+ * The data layer the UI observes. See tiercel_model.h.
+ */
+
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
+#include <time.h>
+
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
+#include "tiercel_model.h"
+#include "tiercel_playbill.h"
+
+static const char *TAG = "model";
+
+/* Timeouts per module, in microseconds. See the header for the cadences
+ * these derive from. Lights and doors are change-driven, so they never
+ * expire -- a light that has not been touched in an hour is not stale. */
+static const int64_t TIMEOUT_US[TIERCEL_MOD_COUNT] = {
+    [TIERCEL_MOD_ENERGY] = 10LL * 1000000,
+    [TIERCEL_MOD_AIR]    = 20LL * 1000000,
+    [TIERCEL_MOD_WATER]  = 10LL * 1000000,
+    [TIERCEL_MOD_LEVEL]  =  5LL * 1000000,
+    [TIERCEL_MOD_LIGHTS] = 0,
+    [TIERCEL_MOD_DOORS]  = 0,
+};
+
+typedef struct {
+    float            value;
+    bool             seen;
+    int64_t          at_us;
+    tiercel_module_t mod;
+} metric_t;
+
+static SemaphoreHandle_t s_lock;
+
+static metric_t m_batt_v, m_batt_pct, m_load_w, m_solar_w, m_runtime;
+static metric_t m_batt_w;
+static metric_t m_temp_f, m_temp_c, m_humid, m_tvoc, m_eco2, m_co;
+static metric_t m_tank[TIERCEL_TANK_COUNT];
+static metric_t m_tilt_fb, m_tilt_ss;
+static metric_t m_diff_fb, m_diff_lr;   /* height differences, mm */
+
+static char     s_charge_type[16] = "--";
+static bool     s_co_alarm, s_co_warn, s_lpg_alarm, s_lpg_warn;
+static bool     s_co2_alarm, s_co2_warn, s_voc_alarm;
+/*
+ * Light state, keyed by id -- NOT indexed by it.
+ *
+ * This used to be `bool s_light_on[TIERCEL_MAX_LIGHTS + 1]` indexed directly
+ * by the light id, with a `id > TIERCEL_MAX_LIGHTS` guard that returned
+ * early. Light ids are not dense: PDM channels are 1..N, but Switchback
+ * relays start at 100 (TIERCEL_SWITCHBACK_ID_BASE). So every relay status was
+ * dropped on the floor -- silently, because the guard was a plain early
+ * return -- and on a rig whose lights are ALL relays (101..108) that is every
+ * light there is. Commands worked and the row never changed state.
+ *
+ * A table keyed by id has no opinion about the id space. The cost is a linear
+ * scan over at most TIERCEL_MAX_LIGHTS entries on each status message, which
+ * at a handful of lights is nothing.
+ */
+typedef struct {
+    uint16_t id;
+    bool     on;
+    uint8_t  brightness;
+} light_state_t;
+
+static light_state_t s_lights[TIERCEL_MAX_LIGHTS];
+static uint8_t       s_light_count;
+
+/** Index of `id`, or -1. Caller holds the lock. */
+static int light_slot(int id)
+{
+    for (uint8_t i = 0; i < s_light_count; i++) {
+        if (s_lights[i].id == (uint16_t)id) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+static uint16_t s_picket[TIERCEL_PICKET_ADDRS];
+static uint16_t s_spoor[TIERCEL_SPOOR_ADDRS];
+/* Bit per address: has this board ever reported? See tiercel_model_input_word(). */
+static uint8_t  s_picket_seen, s_spoor_seen;
+static int64_t  s_module_seen[TIERCEL_MOD_COUNT];
+
+#define LOCK()   xSemaphoreTake(s_lock, portMAX_DELAY)
+#define UNLOCK() xSemaphoreGive(s_lock)
+
+void tiercel_model_init(void)
+{
+    if (!s_lock) {
+        s_lock = xSemaphoreCreateMutex();
+    }
+    /* Everything starts unseen, which renders as `--`. That is the correct
+     * boot state: nothing is retained, so we genuinely do not know. */
+    m_batt_w.mod = TIERCEL_MOD_ENERGY;
+    m_batt_v.mod = m_batt_pct.mod = m_load_w.mod = m_solar_w.mod =
+        m_runtime.mod = TIERCEL_MOD_ENERGY;
+    m_temp_f.mod = m_temp_c.mod = m_humid.mod = m_tvoc.mod =
+        m_eco2.mod = m_co.mod = TIERCEL_MOD_AIR;
+    for (int i = 0; i < TIERCEL_TANK_COUNT; i++) {
+        m_tank[i].mod = TIERCEL_MOD_WATER;
+    }
+    m_tilt_fb.mod = m_tilt_ss.mod = TIERCEL_MOD_LEVEL;
+    m_diff_fb.mod = m_diff_lr.mod = TIERCEL_MOD_LEVEL;
+    tiercel_playbill_init();
+    ESP_LOGI(TAG, "model ready; all values unset");
+}
+
+static void put(metric_t *m, double v)
+{
+    LOCK();
+    m->value = (float)v;
+    m->seen  = true;
+    m->at_us = esp_timer_get_time();
+    s_module_seen[m->mod] = m->at_us;
+    UNLOCK();
+}
+
+static tiercel_value_t get(const metric_t *m)
+{
+    tiercel_value_t out = { 0.0f, false };
+    LOCK();
+    if (m->seen) {
+        const int64_t t = TIMEOUT_US[m->mod];
+        if (t == 0 || (esp_timer_get_time() - m->at_us) < t) {
+            out.value = m->value;
+            out.valid = true;
+        }
+    }
+    UNLOCK();
+    return out;
+}
+
+/* ---- setters -------------------------------------------------------- */
+void tiercel_model_set_battery_volts(double v) { put(&m_batt_v, v); }
+void tiercel_model_set_battery_pct(double v)   { put(&m_batt_pct, v); }
+void tiercel_model_set_load_watts(double v)    { put(&m_load_w, v); }
+void tiercel_model_set_battery_watts(double v) { put(&m_batt_w, v); }
+void tiercel_model_set_solar_watts(double v)   { put(&m_solar_w, v); }
+void tiercel_model_set_runtime_min(double v)   { put(&m_runtime, v); }
+
+void tiercel_model_set_charge_type(const char *s)
+{
+    if (!s) { return; }
+    LOCK();
+    strncpy(s_charge_type, s, sizeof(s_charge_type) - 1);
+    s_charge_type[sizeof(s_charge_type) - 1] = '\0';
+    s_module_seen[TIERCEL_MOD_ENERGY] = esp_timer_get_time();
+    UNLOCK();
+}
+
+void tiercel_model_set_temp_f(double v)  { put(&m_temp_f, v); }
+void tiercel_model_set_temp_c(double v)  { put(&m_temp_c, v); }
+void tiercel_model_set_humidity(double v){ put(&m_humid, v); }
+void tiercel_model_set_tvoc(double v)    { put(&m_tvoc, v); }
+void tiercel_model_set_eco2(double v)    { put(&m_eco2, v); }
+void tiercel_model_set_co(double v)      { put(&m_co, v); }
+
+void tiercel_model_set_safety_flags(bool co_a, bool co_w, bool lpg_a, bool lpg_w,
+                                    bool co2_a, bool co2_w, bool voc_a)
+{
+    LOCK();
+    /* Thresholds are evaluated on-board Borealis; these booleans are the
+     * source of truth and must not be re-derived from the ppm values. */
+    s_co_alarm = co_a; s_co_warn = co_w;
+    s_lpg_alarm = lpg_a; s_lpg_warn = lpg_w;
+    s_co2_alarm = co2_a; s_co2_warn = co2_w; s_voc_alarm = voc_a;
+    s_module_seen[TIERCEL_MOD_AIR] = esp_timer_get_time();
+    UNLOCK();
+}
+
+void tiercel_model_set_tank(tiercel_tank_t t, double pct)
+{
+    if (t >= 0 && t < TIERCEL_TANK_COUNT) { put(&m_tank[t], pct); }
+}
+
+void tiercel_model_set_tilt(double fb, double ss)
+{
+    put(&m_tilt_fb, fb);
+    put(&m_tilt_ss, ss);
+}
+
+void tiercel_model_set_tilt_diff(double fb_mm, double lr_mm)
+{
+    put(&m_diff_fb, fb_mm);
+    put(&m_diff_lr, lr_mm);
+}
+
+void tiercel_model_set_light(int id, bool on, int brightness)
+{
+    /* Only an id of zero or below is meaningless. There is deliberately no
+     * upper bound: see the note on s_lights. */
+    if (id <= 0 || id > UINT16_MAX) { return; }
+
+    LOCK();
+    int slot = light_slot(id);
+    if (slot < 0) {
+        if (s_light_count >= TIERCEL_MAX_LIGHTS) {
+            /* More distinct lights on the rig than this dial tracks. Say so
+             * -- the alternative is a row that never updates and no reason
+             * given, which is the bug this replaced. */
+            UNLOCK();
+            static int64_t s_last_full_us;
+            const int64_t now = esp_timer_get_time();
+            if (s_last_full_us == 0 || (now - s_last_full_us) > 60LL * 1000000) {
+                s_last_full_us = now;
+                ESP_LOGW(TAG, "tracking %d lights already; id %d ignored -- "
+                              "raise TIERCEL_MAX_LIGHTS",
+                         TIERCEL_MAX_LIGHTS, id);
+            }
+            return;
+        }
+        slot = s_light_count++;
+        s_lights[slot].id = (uint16_t)id;
+    }
+    s_lights[slot].on         = on;
+    s_lights[slot].brightness = (uint8_t)(brightness < 0 ? 0 :
+                                          brightness > 255 ? 255 : brightness);
+    s_module_seen[TIERCEL_MOD_LIGHTS] = esp_timer_get_time();
+    UNLOCK();
+}
+
+void tiercel_model_set_picket_inputs(int addr, uint16_t mask)
+{
+    if (addr < 0 || addr >= TIERCEL_PICKET_ADDRS) { return; }
+    LOCK();
+    s_picket[addr] = mask;
+    s_picket_seen |= (uint8_t)(1u << addr);
+    s_module_seen[TIERCEL_MOD_DOORS] = esp_timer_get_time();
+    UNLOCK();
+}
+
+void tiercel_model_set_spoor_inputs(int addr, uint16_t mask)
+{
+    if (addr < 0 || addr >= TIERCEL_SPOOR_ADDRS) { return; }
+    LOCK();
+    s_spoor[addr] = mask & 0xFFu;
+    s_spoor_seen |= (uint8_t)(1u << addr);
+    UNLOCK();
+}
+
+void tiercel_model_note_trigger(const char *topic, const char *payload)
+{
+    /* Discovery and OTA triggers are bare strings, not JSON. Handled by
+     * the discovery/OTA layers; recorded here only so the parse path has
+     * somewhere to hand them. */
+    ESP_LOGI(TAG, "trigger %s = %s", topic ? topic : "?", payload ? payload : "");
+}
+
+/* ---- clock ---------------------------------------------------------- */
+/*
+ * WHY THE ZONE IS A TABLE AND NOT A ZONEINFO LOOKUP
+ *
+ * `os/timezone/current` carries an IANA name because that is what the
+ * Headwaters OS daemon has -- it reads /etc/timezone. Newlib on the ESP32
+ * has no zoneinfo database, so an IANA name means nothing to it; it wants a
+ * POSIX TZ string with the DST rule spelled out. The translation has to
+ * happen somewhere, and a table of the zones the product actually ships to
+ * is smaller than the alternative by several hundred kilobytes.
+ *
+ * Same list, same rules as Fireside's apply_timezone(). Post-2007 US
+ * convention: DST from the 2nd Sunday of March to the 1st Sunday of
+ * November; Phoenix never observes it.
+ */
+static const struct { const char *iana; const char *posix; } ZONES[] = {
+    { "America/New_York",    "EST5EDT,M3.2.0,M11.1.0" },
+    { "America/Chicago",     "CST6CDT,M3.2.0,M11.1.0" },
+    { "America/Denver",      "MST7MDT,M3.2.0,M11.1.0" },
+    { "America/Los_Angeles", "PST8PDT,M3.2.0,M11.1.0" },
+    { "America/Phoenix",     "MST7"                   },
+    { "America/Anchorage",   "AKST9AKDT,M3.2.0,M11.1.0" },
+    { "Pacific/Honolulu",    "HST10"                  },
+    { "UTC",                 "UTC0"                   },
+};
+
+static bool s_time_valid;
+static bool s_tz_known;
+
+bool tiercel_model_set_timezone(const char *iana)
+{
+    if (!iana || !*iana) {
+        return false;
+    }
+    for (size_t i = 0; i < sizeof(ZONES) / sizeof(*ZONES); i++) {
+        if (strcmp(iana, ZONES[i].iana) == 0) {
+            setenv("TZ", ZONES[i].posix, 1);
+            tzset();
+            s_tz_known = true;
+            ESP_LOGI(TAG, "timezone %s -> %s", iana, ZONES[i].posix);
+            return true;
+        }
+    }
+    ESP_LOGW(TAG, "unknown timezone '%s'; keeping the current one -- add it "
+                  "to ZONES above. The clock will read UTC until then", iana);
+    return false;
+}
+
+bool tiercel_model_timezone_known(void) { return s_tz_known; }
+
+void tiercel_model_set_gps_time(int year, int month, int day,
+                                int hour, int minute, int second)
+{
+    /*
+     * No fix yet. The GNSS module keeps publishing CAN 0x006 either way, with
+     * a placeholder date, so a stream of these is NOT evidence that the clock
+     * should be working.
+     *
+     * Rate-limited and logged at WARNING, because this is the answer to the
+     * only question anyone asks about the idle face: the clock shows `--` and
+     * the panel is plainly on the broker with every other reading live. When
+     * that happens, either this line is in the log -- the fix is the antenna,
+     * not the firmware -- or `local/gps/time` is not arriving at all, and its
+     * absence from the log is what says so.
+     *
+     * Roughly once a minute at the 1 Hz this topic publishes at.
+     */
+    if (year < 2020) {
+        static int64_t s_last_nofix_us;
+        const int64_t now = esp_timer_get_time();
+        if (s_last_nofix_us == 0 || (now - s_last_nofix_us) > 60LL * 1000000) {
+            s_last_nofix_us = now;
+            ESP_LOGW(TAG, "GNSS time has no fix yet (year=%d) -- the clock "
+                          "stays blank until it does", year);
+        }
+        return;
+    }
+
+    /*
+     * UTC fields to an epoch by arithmetic, NOT mktime().
+     *
+     * mktime() reads its argument as local time under the installed TZ, so
+     * this used to pin TZ to "UTC0" around the call and put it back. That
+     * ran on the service task about once a second, while the LVGL task
+     * formats the clock with localtime_r() -- which reads the same TZ. A
+     * redraw inside that window rendered UTC, so the hands jumped by the
+     * zone offset and came back a second later (seen on the 1.28",
+     * 2026-09-29). This touches no global state at all.
+     *
+     * Howard Hinnant's days_from_civil: days since 1970-01-01 for a
+     * proleptic Gregorian date.
+     */
+    const int y  = year - (month <= 2);
+    const int era = (y >= 0 ? y : y - 399) / 400;
+    const unsigned yoe = (unsigned)(y - era * 400);
+    const unsigned doy = (unsigned)((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5
+                                    + day - 1);
+    const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    const long long days = (long long)era * 146097 + (long long)doe - 719468;
+    const time_t epoch = (time_t)(days * 86400LL + hour * 3600LL +
+                                  minute * 60LL + second);
+
+    if (epoch <= 0) {
+        return;
+    }
+
+    /*
+     * Only step the clock when it is actually wrong. Milepost publishes at
+     * ~1 Hz, and settimeofday() on every message would drag the second
+     * hand backwards and forwards by the message latency, visibly, on a
+     * face whose whole job is to look calm.
+     */
+    struct timeval now;
+    if (s_time_valid && gettimeofday(&now, NULL) == 0) {
+        const long drift = (long)(epoch - now.tv_sec);
+        if (drift > -2 && drift < 2) {
+            return;
+        }
+    }
+
+    struct timeval tv = { .tv_sec = epoch, .tv_usec = 0 };
+    settimeofday(&tv, NULL);
+
+    if (!s_time_valid) {
+        ESP_LOGI(TAG, "clock set from GNSS: %04d-%02d-%02d %02d:%02d:%02dZ",
+                 year, month, day, hour, minute, second);
+    }
+    s_time_valid = true;
+}
+
+bool tiercel_model_time_valid(void) { return s_time_valid; }
+
+/* ---- getters -------------------------------------------------------- */
+tiercel_value_t tiercel_model_battery_volts(void) { return get(&m_batt_v); }
+tiercel_value_t tiercel_model_battery_pct(void)   { return get(&m_batt_pct); }
+tiercel_value_t tiercel_model_load_watts(void)    { return get(&m_load_w); }
+tiercel_value_t tiercel_model_battery_watts(void) { return get(&m_batt_w); }
+tiercel_value_t tiercel_model_solar_watts(void)   { return get(&m_solar_w); }
+tiercel_value_t tiercel_model_runtime_min(void)   { return get(&m_runtime); }
+tiercel_value_t tiercel_model_temp_f(void)        { return get(&m_temp_f); }
+tiercel_value_t tiercel_model_temp_c(void)        { return get(&m_temp_c); }
+tiercel_value_t tiercel_model_humidity(void)      { return get(&m_humid); }
+tiercel_value_t tiercel_model_tvoc(void)          { return get(&m_tvoc); }
+tiercel_value_t tiercel_model_eco2(void)          { return get(&m_eco2); }
+tiercel_value_t tiercel_model_co(void)            { return get(&m_co); }
+tiercel_value_t tiercel_model_tilt_front_back(void) { return get(&m_tilt_fb); }
+tiercel_value_t tiercel_model_tilt_side_to_side(void) { return get(&m_tilt_ss); }
+tiercel_value_t tiercel_model_tilt_diff_front_back(void) { return get(&m_diff_fb); }
+tiercel_value_t tiercel_model_tilt_diff_left_right(void) { return get(&m_diff_lr); }
+
+tiercel_value_t tiercel_model_tank(tiercel_tank_t t)
+{
+    if (t < 0 || t >= TIERCEL_TANK_COUNT) {
+        return (tiercel_value_t){ 0.0f, false };
+    }
+    return get(&m_tank[t]);
+}
+
+const char *tiercel_model_charge_type(void) { return s_charge_type; }
+
+bool tiercel_model_any_alarm(void)
+{
+    bool a;
+    LOCK();
+    a = s_co_alarm || s_lpg_alarm;
+    UNLOCK();
+    return a;
+}
+
+tiercel_air_level_t tiercel_model_air_level(void)
+{
+    /*
+     * Liveness first. The flags are plain bools with no timestamp of their
+     * own, so an all-false set is indistinguishable from a module that has
+     * never spoken -- and reporting "Good" for a sensor that is not there is
+     * exactly the stale-looks-live failure the rest of this file exists to
+     * avoid.
+     */
+    if (!tiercel_model_module_alive(TIERCEL_MOD_AIR)) {
+        return TIERCEL_AIR_UNKNOWN;
+    }
+
+    bool alarm, warn;
+    LOCK();
+    alarm = s_co2_alarm || s_voc_alarm || s_co_alarm;
+    warn  = s_co2_warn  || s_co_warn;
+    UNLOCK();
+
+    if (alarm) { return TIERCEL_AIR_UNHEALTHY; }
+    if (warn)  { return TIERCEL_AIR_MODERATE; }
+    return TIERCEL_AIR_GOOD;
+}
+
+bool tiercel_model_light_on(int id)
+{
+    bool v = false;
+    LOCK();
+    const int slot = light_slot(id);
+    if (slot >= 0) { v = s_lights[slot].on; }
+    UNLOCK();
+    return v;
+}
+
+int tiercel_model_light_brightness(int id)
+{
+    int v = 0;
+    LOCK();
+    const int slot = light_slot(id);
+    if (slot >= 0) { v = s_lights[slot].brightness; }
+    UNLOCK();
+    return v;
+}
+
+bool tiercel_model_light_known(int id)
+{
+    LOCK();
+    const bool known = light_slot(id) >= 0;
+    UNLOCK();
+    return known;
+}
+
+int tiercel_model_lights_on_count(void)
+{
+    int n = 0;
+    LOCK();
+    for (uint8_t i = 0; i < s_light_count; i++) {
+        if (s_lights[i].on) { n++; }
+    }
+    UNLOCK();
+    return n;
+}
+
+uint16_t tiercel_model_picket_inputs(int addr)
+{
+    if (addr < 0 || addr >= TIERCEL_PICKET_ADDRS) { return 0; }
+    uint16_t v; LOCK(); v = s_picket[addr]; UNLOCK(); return v;
+}
+
+bool tiercel_model_input_word(bool switchback, int addr, uint16_t *out)
+{
+    const int n = switchback ? TIERCEL_SPOOR_ADDRS : TIERCEL_PICKET_ADDRS;
+    uint16_t v = 0;
+    bool seen = false;
+    if (addr >= 0 && addr < n) {
+        LOCK();
+        seen = ((switchback ? s_spoor_seen : s_picket_seen) >> addr) & 1u;
+        if (seen) { v = switchback ? s_spoor[addr] : s_picket[addr]; }
+        UNLOCK();
+    }
+    if (out) { *out = v; }
+    return seen;
+}
+
+bool tiercel_model_module_alive(tiercel_module_t m)
+{
+    if (m < 0 || m >= TIERCEL_MOD_COUNT) { return false; }
+    const int64_t t = TIMEOUT_US[m];
+    bool alive;
+    LOCK();
+    alive = s_module_seen[m] != 0 &&
+            (t == 0 || (esp_timer_get_time() - s_module_seen[m]) < t);
+    UNLOCK();
+    return alive;
+}
+
+void tiercel_model_expire_stale(void)
+{
+    /*
+     * Deliberately does nothing.
+     *
+     * Expiry is evaluated lazily in get(), by comparing the timestamp at
+     * read time. There is no state to sweep, so a periodic pass would only
+     * be able to log -- and a value cannot be read as fresh after its
+     * timeout regardless of whether this was called.
+     *
+     * The function stays because the call site is the natural place to add
+     * "module went offline" logging or a UI transition later, and because
+     * a data layer with no visible expiry step invites someone to assume
+     * there isn't one.
+     */
+}

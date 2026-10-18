@@ -1,0 +1,51 @@
+menu "Tiercel"
+
+comment "Behaviour"
+
+config TIERCEL_IDLE_TIMEOUT_S
+    int "Seconds of inactivity before the idle clock appears"
+    range 0 3600
+    default 30
+    help
+      Initial value only; the user changes it under Settings > Clock Timeout
+      and it is stored in NVS. 0 never returns to the clock.
+
+config TIERCEL_ALARM_SNOOZE_MIN
+    int "Minutes an acknowledged alarm stays quiet"
+    range 1 240
+    default 10
+    help
+      Initial value only. A tap on the alert overlay acknowledges every alarm
+      on it; one still active after this long is raised again. Changed on the
+      device under Settings > Alarm Snooze.
+
+config TIERCEL_DEFAULT_UNITS_CELSIUS
+    bool "Default to Celsius"
+    default n
+
+config TIERCEL_DEFAULT_THEME_DARK
+    bool "Default to the dark theme"
+    default y
+    help
+      The design's default. Changed on the device under Settings > Theme.
+
+comment "Connectivity"
+
+config TIERCEL_MQTT_DEFAULT_PORT
+    int "Default MQTT port"
+    default 8883
+    help
+      Headwaters' Mosquitto listens only on 8883, TLS, with a username and
+      password. This is what the setup portal starts from.
+
+config TIERCEL_WIFI_TX_POWER_QDBM
+    int "Wi-Fi maximum transmit power (quarter-dBm)"
+    range 8 80
+    default 80
+    help
+      esp_wifi_set_max_tx_power() takes quarter-dBm: 80 is 20 dBm, the
+      driver's default. Lower it only for a unit whose setup AP cannot be
+      seen while it can itself see networks -- the signature of a 3V3 rail
+      that sags on transmit bursts (Capstan's MaTouch needed 44).
+
+endmenu

@@ -1,0 +1,69 @@
+# AI agent configuration (local only — never commit)
+.claude
+.claude/
+.claude.md
+CLAUDE.md
+CLAUDE.MD
+.cursorrules
+.cursor/
+.github/copilot*
+.aider*
+.continue/
+.codeium/
+.tabnine*
+.sourcery.yaml
+
+# ESP-IDF build artifacts
+build/
+build_*/
+build.*/
+
+# Release binaries collected for distribution.
+release/
+
+# Generated configuration (keep sdkconfig.defaults* and boards/*.defaults tracked)
+sdkconfig
+sdkconfig.old
+
+# ESP-IDF dependency manager
+dependencies.lock
+managed_components/
+
+# EEZ Studio backups + tmp/ working state
+GUI/**/*.eez-project.bak*
+GUI/**/*.eez-project-ui-state
+# EEZ Studio Docker simulator build output -- regenerated on every sim run.
+GUI/.docker-build-output/
+tmp/
+GUI/tmp/
+**/tmp/
+
+# Editor workspace settings.
+#
+# .vscode/settings.json is NOT shared config here: the ESP-IDF extension
+# writes idf.currentSetup into it at ConfigurationTarget.WorkspaceFolder
+# every time you pick an IDF version, and the value is an absolute path to
+# that developer's own IDF checkout. Tracking it means every clone either
+# fights over the path or points the extension at a directory that does not
+# exist on their machine.
+#
+# See .vscode/settings.json.example for what belongs in it, and set it in
+# your own user settings or your untracked copy — never here.
+.vscode/settings.json
+
+# Local, per-developer config (device port, rig hostname, credentials).
+# Never commit — see scripts/dev.env.example for the template.
+scripts/dev.env
+.env.local
+
+# Factory firmware dumps -- 20 MB per unit and specific to the unit they came
+# off (NVS, calibration, MAC). Keep locally, archive elsewhere; see
+# docs/factory-firmware.md for how to take and restore one.
+firmware_backup/
+
+# Logs
+*.log
+
+# FreeCAD automatic backups (timestamped .FCBak, and the older .FCStd1 style)
+*.FCBak
+*.FCStd1
