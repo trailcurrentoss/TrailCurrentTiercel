@@ -12,7 +12,13 @@
  * and a debounced poll at 3 ms is both simpler and cheaper than an ISR that
  * has to reject most of what it sees.
  *
- * Detents accumulate in an atomic counter and are delivered to the UI from an
+ * Clicks are grouped into steps here, in the poll (Settings > Knob Ratio),
+ * and the step's haptic tick is played here too: the poll sees the click
+ * within 3 ms, where the UI
+ * may not get to it for tens of milliseconds while LVGL renders a frame, and
+ * a tick that trails the click feels like a second, separate click.
+ *
+ * Steps accumulate in an atomic counter and are delivered to the UI from an
  * lv_timer, so the rotate callback always runs in the LVGL task with the
  * display lock held -- the same contract as Capstan's ring.
  */
@@ -33,6 +39,7 @@ static const char *TAG = "board.knob";
 #define POLL_US         3000
 #define DEBOUNCE_TICKS  2
 #define DELIVER_MS      10
+#define FORGET_US       1000000   /* a pause this long drops a partial step */
 
 typedef struct {
     gpio_num_t pin;
@@ -52,10 +59,46 @@ static contact_t s_contacts[2] = {
 #  define KNOB_SIGN (+1)
 #endif
 
-static atomic_int                 s_pending;
+static atomic_int                 s_pending;      /* whole steps */
+static atomic_int                 s_ratio = 1;    /* clicks per step */
+static atomic_bool                s_reset;
+static int                        s_partial;      /* poll task only */
+static int64_t                    s_last_click_us;
 static esp_timer_handle_t         s_poll;
 static tiercel_board_rotate_cb_t  s_cb;
 static void                      *s_cb_ctx;
+
+/* One debounced click, on the poll task. A partial step carries only within
+ * one deliberate turn: a reversal, a pause or a reset drops it, so a stray
+ * click never sits waiting to make the next single click act early. */
+static void on_click(int dir)
+{
+    const int64_t now = esp_timer_get_time();
+    if (atomic_exchange(&s_reset, false) ||
+        (s_partial > 0 && dir < 0) || (s_partial < 0 && dir > 0) ||
+        now - s_last_click_us > FORGET_US) {
+        s_partial = 0;
+    }
+    s_last_click_us = now;
+    s_partial += dir;
+    const int ratio = atomic_load(&s_ratio);
+    if (s_partial >= ratio || s_partial <= -ratio) {
+        s_partial = 0;
+        atomic_fetch_add(&s_pending, dir);
+        tiercel_board_haptic(TIERCEL_HAPTIC_DETENT);
+    }
+}
+
+void tiercel_board_knob_set_ratio(int clicks)
+{
+    atomic_store(&s_ratio, clicks < 1 ? 1 : clicks > 3 ? 3 : clicks);
+    atomic_store(&s_reset, true);
+}
+
+void tiercel_board_knob_reset(void)
+{
+    atomic_store(&s_reset, true);
+}
 
 static void poll_cb(void *arg)
 {
@@ -71,7 +114,7 @@ static void poll_cb(void *arg)
             /* Released. A contact that was low for only one poll is bounce
              * from the neighbouring detent, not a detent of its own. */
             if (c->low_ticks >= DEBOUNCE_TICKS) {
-                atomic_fetch_add(&s_pending, c->dir * KNOB_SIGN);
+                on_click(c->dir * KNOB_SIGN);
             }
             c->low_ticks = 0;
         }

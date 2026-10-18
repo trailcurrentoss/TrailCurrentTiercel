@@ -97,6 +97,9 @@ typedef struct {
     /** Haptic feedback (Settings > Haptics). Covers the end-stop bump on a
      *  knob value that has reached its limit and the tap confirmations. */
     bool haptics;
+    /** Knob clicks per step (Settings > Knob Ratio): 1, 2 or 3. One step
+     *  moves a selection or a value once; the haptic tick marks it. */
+    uint8_t knob_ratio;
     /** Peregrine's reply volume, 0-100. Set from the Peregrine screen's knob,
      *  so it survives a reboot rather than resetting mid-conversation. */
     uint8_t voice_volume;

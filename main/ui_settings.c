@@ -283,6 +283,7 @@ const char *ui_settings_theme_text(void)
 #define G_SUN     "\xEF\x86\x85"   /* 0xF185 sun (brightness)     */
 #define G_UNDO    "\xEF\x83\xA2"   /* 0xF0E2 rotate-left (back)   */
 #define G_HAND    "\xEF\x89\x9A"   /* 0xF25A hand-pointer         */
+#define G_TURN    "\xEF\x80\xA1"   /* 0xF021 arrows-rotate (knob) */
 #define G_BELL    "\xEF\x83\xB3"   /* 0xF0F3 bell                 */
 #define G_PHONES  "\xEF\x80\xA5"   /* 0xF025 headphones           */
 #define G_CLOCK   "\xEF\x80\x97"   /* 0xF017 clock                */
@@ -302,6 +303,7 @@ static const struct {
     { G_SUN,    "Brightness"    },
     { G_UNDO,   "Back Gesture"  },
     { G_HAND,   "Haptics"       },
+    { G_TURN,   "Knob Ratio"    },
     { G_LOCALE, "Locale"        },
     { G_CLOCK,  "Clock Face"    },
     { G_BELL,   "Alarm Snooze"  },
@@ -413,6 +415,13 @@ void ui_settings_refresh(void)
         value = d.haptics ? "On" : "Off";
         break;
     }
+    case UI_SETTINGS_KNOB: {
+        tiercel_display_cfg_t d;
+        tiercel_config_get_display(&d);
+        snprintf(buf, sizeof(buf), "%u:1", (unsigned)d.knob_ratio);
+        value = buf;
+        break;
+    }
     case UI_SETTINGS_SNOOZE:
         ui_settings_snooze_text(buf, sizeof(buf));
         value = buf;
@@ -450,6 +459,7 @@ void ui_settings_refresh(void)
         objects.settings_dot6, objects.settings_dot7,
         objects.settings_dot8, objects.settings_dot9,
         objects.settings_dot10, objects.settings_dot11,
+        objects.settings_dot12,
     };
     for (int i = 0; i < UI_SETTINGS_ITEM_COUNT; i++) {
         ui_lv_set_state_in(dots[i], LV_STATE_CHECKED,
@@ -523,6 +533,19 @@ void ui_settings_haptics_pressed(void)
     /* Turning it ON confirms with a bump, so the setting proves itself. */
     tiercel_board_haptic(TIERCEL_HAPTIC_CONFIRM);
     ESP_LOGI(TAG, "haptics -> %s", d.haptics ? "on" : "off");
+}
+
+void ui_settings_knob_pressed(void)
+{
+    tiercel_display_cfg_t d;
+    tiercel_config_get_display(&d);
+    d.knob_ratio = d.knob_ratio >= 3 ? 1 : d.knob_ratio + 1;
+    if (tiercel_config_set_display(&d) != ESP_OK) {
+        ESP_LOGE(TAG, "knob ratio save failed");
+        return;
+    }
+    tiercel_board_knob_set_ratio(d.knob_ratio);
+    ESP_LOGI(TAG, "knob ratio -> %u:1", (unsigned)d.knob_ratio);
 }
 
 /* ----------------------------------------------------------------------

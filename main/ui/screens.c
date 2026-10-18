@@ -3584,7 +3584,7 @@ void create_screen_page_settings() {
             // settings_dot0
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot0 = obj;
-            lv_obj_set_pos(obj, 263, 311);
+            lv_obj_set_pos(obj, 270, 306);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3594,7 +3594,7 @@ void create_screen_page_settings() {
             // settings_dot1
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot1 = obj;
-            lv_obj_set_pos(obj, 249, 319);
+            lv_obj_set_pos(obj, 256, 315);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3604,7 +3604,7 @@ void create_screen_page_settings() {
             // settings_dot2
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot2 = obj;
-            lv_obj_set_pos(obj, 234, 326);
+            lv_obj_set_pos(obj, 241, 323);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3614,7 +3614,7 @@ void create_screen_page_settings() {
             // settings_dot3
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot3 = obj;
-            lv_obj_set_pos(obj, 218, 331);
+            lv_obj_set_pos(obj, 226, 329);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3624,7 +3624,7 @@ void create_screen_page_settings() {
             // settings_dot4
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot4 = obj;
-            lv_obj_set_pos(obj, 201, 335);
+            lv_obj_set_pos(obj, 209, 333);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3634,7 +3634,7 @@ void create_screen_page_settings() {
             // settings_dot5
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot5 = obj;
-            lv_obj_set_pos(obj, 184, 336);
+            lv_obj_set_pos(obj, 193, 336);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3644,7 +3644,7 @@ void create_screen_page_settings() {
             // settings_dot6
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot6 = obj;
-            lv_obj_set_pos(obj, 168, 336);
+            lv_obj_set_pos(obj, 176, 337);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3654,7 +3654,7 @@ void create_screen_page_settings() {
             // settings_dot7
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot7 = obj;
-            lv_obj_set_pos(obj, 151, 335);
+            lv_obj_set_pos(obj, 159, 336);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3664,7 +3664,7 @@ void create_screen_page_settings() {
             // settings_dot8
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot8 = obj;
-            lv_obj_set_pos(obj, 134, 331);
+            lv_obj_set_pos(obj, 143, 333);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3674,7 +3674,7 @@ void create_screen_page_settings() {
             // settings_dot9
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot9 = obj;
-            lv_obj_set_pos(obj, 118, 326);
+            lv_obj_set_pos(obj, 126, 329);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3684,7 +3684,7 @@ void create_screen_page_settings() {
             // settings_dot10
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot10 = obj;
-            lv_obj_set_pos(obj, 103, 319);
+            lv_obj_set_pos(obj, 111, 323);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);
@@ -3694,7 +3694,17 @@ void create_screen_page_settings() {
             // settings_dot11
             lv_obj_t *obj = lv_obj_create(parent_obj);
             objects.settings_dot11 = obj;
-            lv_obj_set_pos(obj, 89, 311);
+            lv_obj_set_pos(obj, 96, 315);
+            lv_obj_set_size(obj, 8, 8);
+            lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
+            add_style_dot(obj);
+            lv_obj_set_style_radius(obj, 1000, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        {
+            // settings_dot12
+            lv_obj_t *obj = lv_obj_create(parent_obj);
+            objects.settings_dot12 = obj;
+            lv_obj_set_pos(obj, 82, 306);
             lv_obj_set_size(obj, 8, 8);
             lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_SCROLLABLE);
             add_style_dot(obj);

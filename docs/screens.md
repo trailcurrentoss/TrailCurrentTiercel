@@ -8,7 +8,7 @@ Peregrine and Playbill added.
 
 | Input | Meaning |
 |---|---|
-| **Turn** | Moves through items, or adjusts the value drawn on the rim. One detent, one step. |
+| **Turn** | Moves through items, or adjusts the value drawn on the rim. One step per click by default; **Settings → Knob Ratio** makes it two or three clicks per step. |
 | **Tap** | Replaces press: open, toggle, confirm. Only the centred item and labelled buttons respond. |
 | **Back** | One of three gestures, set in **Settings → Back Gesture** (below). |
 
@@ -26,11 +26,25 @@ does not also act on a screen you cannot see yet.
 A recognised swipe or hold takes the touch away from whatever it started on,
 so a swipe that begins on the play button does not also press play.
 
-### Haptics: you feel the end stops
+### Haptics: graded so you can tell them apart
+
+Each kind of input has its own feel, from lightest to heaviest:
+
+| Event | Feel |
+|---|---|
+| A knob step, timed to the click that completes it (any screen) | one click |
+| A tap that selects or opens something | double click |
+| A committed change (a device toggled, a mode set) | triple click |
+| Back taken (swipe, hold or the back chip) | strong buzz |
+| A detent past a limit | strong pulse |
+| An alarm | buzz |
+
+A swipe also gives a single click when it crosses the back threshold, so you
+know letting go will go back. A heavier effect cuts off a lighter one still
+playing; a lighter one never cuts off a heavier one.
 
 Every value the knob adjusts that has a **minimum or maximum** answers a
-detent past its limit with a bump from the haptic motor, and the value does
-not move:
+detent past its limit with the pulse, and the value does not move:
 
 | Screen | Knob adjusts | Limits |
 |---|---|---|
@@ -43,10 +57,9 @@ not move:
 | Brightness | backlight | 5 / 100 % |
 
 The three **carousels** (the app menu, Devices, Settings) and the clock-face
-picker wrap around, so they have no end to bump against. A tap gives a light
-tick, a committed change (a device toggled, a mode set) a double click, and
-an alarm a buzz. **Settings → Haptics** turns all of it off. Effects and
-strengths are in `menuconfig → Tiercel board`.
+picker wrap around, so they have no end to bump against: every detent clicks.
+**Settings → Haptics** turns all of it off. Effects, and the motor's drive
+clamp, are in `menuconfig → Tiercel board`.
 
 ## Screens
 
@@ -85,7 +98,7 @@ or tap to change page.
 **Water Tanks, Air Quality, Leveling.** Read-only.
 
 **Settings.** A carousel: Wi-Fi and MQTT (status only), Bluetooth, Theme,
-Brightness, Back Gesture, Haptics, Locale, Clock Face, Alarm Snooze, Clock
+Brightness, Back Gesture, Haptics, Knob Ratio (1:1, 2:1 or 3:1 clicks per step), Locale, Clock Face, Alarm Snooze, Clock
 Timeout, Factory Reset. Tap the tile to change or open the setting. Factory Reset
 takes two taps within five seconds.
 

@@ -37,8 +37,6 @@ static void on_rotate(int diff, void *ctx)
         /* Clamp, and bump: the behaviour every bounded knob value gets. */
         want = want > LIMIT ? LIMIT : -LIMIT;
         tiercel_board_haptic(TIERCEL_HAPTIC_LIMIT);
-    } else {
-        tiercel_board_haptic(TIERCEL_HAPTIC_TAP);
     }
     s_pos = want;
     lv_label_set_text_fmt(s_count, "%d", s_pos);

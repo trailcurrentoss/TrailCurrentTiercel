@@ -32,11 +32,12 @@ changes is the input. Capstan is a ring you turn and press. Tiercel is
 - **Energy, Water, Air Quality, Leveling:** read-only live status.
 - **Alerts:** door and safety alarms take over the screen with a buzz until tapped.
 - **Clock:** four idle clock faces.
-- **Settings:** theme, brightness, back gesture, haptics, units, clock face, snooze and timeout.
+- **Settings:** theme, brightness, back gesture, haptics, knob ratio, units, clock face, snooze and timeout.
 
-When any knob-adjusted value reaches its limit (volume, temperature, brightness,
-the end of a list), the next detent bumps the haptic motor instead of moving.
-You feel the end stop without looking. See [docs/screens.md](docs/screens.md).
+Every knob detent clicks the haptic motor, and taps, commits and back each have
+their own heavier feel. When a knob-adjusted value reaches its limit (volume,
+temperature, brightness, the end of a list), the next detent pulses instead of
+moving. You feel the end stop without looking. See [docs/screens.md](docs/screens.md).
 
 ---
 

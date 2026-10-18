@@ -338,6 +338,7 @@ typedef struct _objects_t {
     lv_obj_t *settings_dot9;
     lv_obj_t *settings_dot10;
     lv_obj_t *settings_dot11;
+    lv_obj_t *settings_dot12;
     lv_obj_t *settings_swipe_arc;
     lv_obj_t *settings_hold_arc;
     lv_obj_t *settings_back_chip;

@@ -153,6 +153,7 @@ void app_main(void)
 
     ESP_ERROR_CHECK(tiercel_board_init());
     tiercel_board_haptics_enable(disp.haptics);
+    tiercel_board_knob_set_ratio(disp.knob_ratio);
 
     if (tiercel_audio_init() != ESP_OK) {
         ESP_LOGE(TAG, "audio did not start -- Peregrine will be unavailable");

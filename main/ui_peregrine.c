@@ -108,10 +108,22 @@ bool ui_peregrine_busy(void)
 int32_t ui_peregrine_ring_a_max(void) { return s_ring > 0 ? s_ring - 1 : -1; }
 int32_t ui_peregrine_ring_b_min(void) { return s_ring > 0 ? 60 - s_ring : 60; }
 
+/*
+ * The spinner overlaps the tick ring, so every new angle redraws all 60
+ * ticks -- software-rendered skewed lines, the most expensive thing on the
+ * page. Turned every frame, LVGL never rested: CPU 1's idle task starved and
+ * the task watchdog fired every 5 s for as long as Peregrine was thinking.
+ * So the angle moves in SPIN_FRAME_MS steps of SPIN_STEP_DEG -- one lap in
+ * 3.2 s at about 6 redraws a second -- and ui_tick() only redraws when the
+ * angle actually changes.
+ */
+#define SPIN_FRAME_MS  160
+#define SPIN_STEP_DEG  18
+
 int32_t ui_peregrine_spin(void)
 {
-    /* The design's 0.22 deg/ms -- one lap in about 1.6 s. */
-    return (int32_t)((esp_timer_get_time() / 1000 * 22 / 100) % 360);
+    const int64_t frame = esp_timer_get_time() / 1000 / SPIN_FRAME_MS;
+    return (int32_t)((frame * SPIN_STEP_DEG) % 360);
 }
 
 void ui_peregrine_summary(char *out, size_t len)

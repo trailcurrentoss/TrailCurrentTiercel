@@ -43,6 +43,7 @@ static const char *TAG = "config";
 #define K_DISP_24H   "d_24h"
 #define K_DISP_BACK  "d_back"
 #define K_DISP_HAPT  "d_haptics"
+#define K_DISP_KNOB  "d_knob"
 #define K_DISP_VOICE "d_voice_vol"
 #define K_DISP_FACE  "d_face"
 #define K_DISP_DARK  "d_dark"
@@ -187,6 +188,7 @@ static void load_defaults(void)
 
     s_display.back_gesture = TIERCEL_BACK_SWIPE;   /* the design's default */
     s_display.haptics      = true;
+    s_display.knob_ratio   = 1;
     s_display.voice_volume = 60;
 
     memset(&s_services, 0, sizeof(s_services));
@@ -307,6 +309,10 @@ static esp_err_t load_from_nvs(void)
     s_display.back_gesture = back < TIERCEL_BACK_COUNT
                            ? (tiercel_back_gesture_t)back : TIERCEL_BACK_SWIPE;
     read_bool(h, K_DISP_HAPT, &s_display.haptics);
+    read_u8(h,   K_DISP_KNOB, &s_display.knob_ratio);
+    if (s_display.knob_ratio < 1 || s_display.knob_ratio > 3) {
+        s_display.knob_ratio = 1;
+    }
     read_u8(h,   K_DISP_VOICE, &s_display.voice_volume);
     if (s_display.voice_volume > 100) {
         s_display.voice_volume = 100;
@@ -715,6 +721,7 @@ esp_err_t tiercel_config_set_display(const tiercel_display_cfg_t *cfg)
     err |= nvs_set_u8(h,  K_DISP_24H,   cfg->clock_24h ? 1 : 0);
     err |= nvs_set_u8(h,  K_DISP_BACK, (uint8_t)cfg->back_gesture);
     err |= nvs_set_u8(h,  K_DISP_HAPT, cfg->haptics ? 1 : 0);
+    err |= nvs_set_u8(h,  K_DISP_KNOB, cfg->knob_ratio);
     err |= nvs_set_u8(h,  K_DISP_VOICE, cfg->voice_volume);
     err |= nvs_set_u8(h,  K_DISP_FACE, cfg->clock_face);
     err |= nvs_set_u8(h,  K_DISP_DARK, cfg->dark_theme ? 1 : 0);

@@ -82,6 +82,7 @@ void action_settings_activate(lv_event_t *e)
     case UI_SETTINGS_THEME:   ui_settings_theme_pressed();   break;
     case UI_SETTINGS_BACK:    ui_settings_back_pressed();    break;
     case UI_SETTINGS_HAPTICS: ui_settings_haptics_pressed(); break;
+    case UI_SETTINGS_KNOB:    ui_settings_knob_pressed();    break;
     case UI_SETTINGS_SNOOZE:  ui_settings_snooze_pressed();  break;
     case UI_SETTINGS_TIMEOUT: ui_settings_timeout_pressed(); break;
     case UI_SETTINGS_RESET:   ui_settings_factory_reset_pressed(); break;

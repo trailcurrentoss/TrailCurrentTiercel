@@ -334,6 +334,9 @@ void ui_nav_goto(tiercel_screen_t screen)
         return;
     }
     on_leave(s_current, screen);
+    if (screen != s_current) {
+        tiercel_board_knob_reset();
+    }
     show_overlay(screen);
     loadScreen((enum ScreensEnum)s_eez_id[screen]);
     s_current = screen;
@@ -352,7 +355,7 @@ void ui_nav_back(void)
         return;
     }
     if (s_policy[s_current].back != s_current) {
-        tiercel_board_haptic(TIERCEL_HAPTIC_TAP);
+        tiercel_board_haptic(TIERCEL_HAPTIC_BACK);
         ui_nav_goto(s_policy[s_current].back);
     }
 }
@@ -372,6 +375,8 @@ void ui_nav_rotate(int diff)
         return;
     }
 
+    /* The board has already ticked this step (see tiercel_board.h); each
+     * handler below bumps LIMIT when the step cannot move anything. */
     switch (s_current) {
     case TIERCEL_SCREEN_CLIMATE:    ui_climate_rotate(diff);            return;
     case TIERCEL_SCREEN_CLOCKFACE:  ui_clock_pick_rotate(diff);         return;
@@ -467,13 +472,17 @@ void ui_nav_select_row(int row)
  * must not also press play when the finger lifts.
  *
  *   swipe  a drag, left or right, that is more horizontal than vertical; the
- *          left-edge arc lights as it grows; released past 70 px in the
+ *          left-edge arc lights as it grows and a detent tick marks the
+ *          moment it fills; released past 70 px in the
  *          direction it started it goes back, released short it does nothing
  *          (the design's rule). Either direction counts: on a round face
  *          there is no edge to swipe in from, and a reach across the glass
  *          comes as naturally one way as the other
  *   hold   a still finger for 650 ms; the rim fills as it goes, and lifting
  *          or moving early cancels it
+ *
+ * Either way, back lands with the BACK haptic (ui_nav_back), heavier and
+ * rounder than any tap, so the hand knows it left the screen.
  *
  * Any other drag past SLOP_PX -- on any screen, in any back mode, including
  * the menu where there is no back gesture at all -- is taken away from the
@@ -495,6 +504,7 @@ static g_state_t  s_g;
 static lv_point_t s_g_start;
 static int64_t    s_g_at;
 static int        s_g_dir;      /* +1 a right swipe, -1 a left one */
+static bool       s_g_armed;    /* the swipe is past the threshold */
 
 static void gesture_end(const overlay_t *o)
 {
@@ -560,6 +570,7 @@ static void gesture_timer_cb(lv_timer_t *t)
         if (s_g == G_PRESSED && adx > SLOP_PX && adx > ady) {
             s_g = G_SWIPE;
             s_g_dir = dx > 0 ? 1 : -1;
+            s_g_armed = false;
             gesture_steal(in);
         } else if (s_g == G_PRESSED && moved) {
             gesture_steal(in);  /* a vertical drag: not a back, not a tap */
@@ -573,6 +584,13 @@ static void gesture_timer_cb(lv_timer_t *t)
                           : d * 100 / SWIPE_BACK_PX;
             lv_arc_set_value(*o.swipe, pct);
             ui_lv_set_hidden(*o.swipe, false);
+            /* A tick as the arc fills: letting go now goes back. Ticks
+             * again each time the finger comes back over the line. */
+            const bool armed_now = d >= SWIPE_BACK_PX;
+            if (armed_now && !s_g_armed) {
+                tiercel_board_haptic(TIERCEL_HAPTIC_DETENT);
+            }
+            s_g_armed = armed_now;
         }
         return;
     }

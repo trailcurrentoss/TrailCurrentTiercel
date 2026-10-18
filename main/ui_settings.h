@@ -77,6 +77,7 @@ enum {
     UI_SETTINGS_BRIGHTNESS,
     UI_SETTINGS_BACK,
     UI_SETTINGS_HAPTICS,
+    UI_SETTINGS_KNOB,
     UI_SETTINGS_LOCALE,
     UI_SETTINGS_FACE,
     UI_SETTINGS_SNOOZE,
@@ -115,6 +116,10 @@ const char *ui_settings_back_text(void);
 
 /** Settings > Haptics: on/off, applied at once. */
 void ui_settings_haptics_pressed(void);
+
+/** Settings > Knob Ratio: clicks per step, 1:1 -> 2:1 -> 3:1, applied at
+ *  once and saved to NVS. */
+void ui_settings_knob_pressed(void);
 
 /*
  * Brightness. The Brightness screen sets the backlight live as the knob turns

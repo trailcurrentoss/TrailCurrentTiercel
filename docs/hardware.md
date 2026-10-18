@@ -73,10 +73,12 @@ MCLK; the DAC derives its clock from BCK.
 system 5 V net, not the cell, so it cannot report battery charge. Tiercel
 does not use it.
 
-**Haptics.** The motor nets are labelled `LRA_P/LRA_N`, but Waveshare's demo
-drives the DRV2605 as an ERM in open loop with ROM library 5, and that is
-what Tiercel does by default. `menuconfig → Tiercel board` has an LRA option
-and per-effect overrides if a unit feels weak.
+**Haptics.** The motor is an LRA (nets `LRA_P/LRA_N`). Waveshare's demo
+drives the DRV2605 as an ERM in open loop, where only long buzzes can be felt.
+Tiercel auto-calibrates the LRA at power-up (a hum of about a second) and plays
+effects closed loop from the LRA library, falling back to ERM open loop if
+calibration fails. `menuconfig → Tiercel board` has the rated voltage, drive
+clamp, per-effect overrides and a force-ERM option.
 
 **Flash mode is DIO.** The factory image and Waveshare's demos run DIO; this
 unit's flash has not been proven in QIO, so `sdkconfig.defaults` sets DIO.

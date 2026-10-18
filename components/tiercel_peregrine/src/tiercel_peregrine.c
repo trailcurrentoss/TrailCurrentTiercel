@@ -260,6 +260,7 @@ static void send_and_play(const int16_t *pcm, size_t bytes)
         ok = w > 0;
         off += w > 0 ? (size_t)w : 0;
     }
+    const int64_t t_up = esp_timer_get_time();
     if (!ok || s_cancel) {
         esp_http_client_close(c);
         esp_http_client_cleanup(c);
@@ -271,6 +272,12 @@ static void send_and_play(const int16_t *pcm, size_t bytes)
     }
 
     esp_http_client_fetch_headers(c);
+    const int64_t t_hdr = esp_timer_get_time();
+    /* Where the time went: connect + TLS, upload, then the server's own
+     * think time until its first byte. A slow request is the device's if the
+     * first two are big, the server's if the last one is. */
+    ESP_LOGI(TAG, "timing (ms): open+upload %lld, server to first byte %lld",
+             (t_up - t0) / 1000, (t_hdr - t_up) / 1000);
     const int status = esp_http_client_get_status_code(c);
     if (status != 200) {
         esp_http_client_close(c);
@@ -361,12 +368,16 @@ static void worker(void *arg)
         s_last_loud = start;
         s_peak = 0;
         bool speech = false;
+        uint8_t floor_lvl = 255;   /* quietest level once speech began */
         while (!s_cancel && !s_stop_listen) {
             vTaskDelay(pdMS_TO_TICKS(40));
             const int64_t now = esp_timer_get_time();
             const uint8_t lvl = tiercel_audio_mic_level();
             if (lvl > s_peak) {
                 s_peak = lvl;
+            }
+            if (speech && lvl < floor_lvl) {
+                floor_lvl = lvl;
             }
             if (lvl >= SPEECH_LEVEL) {
                 s_last_loud = now;
@@ -387,9 +398,13 @@ static void worker(void *arg)
         const int16_t *pcm = NULL;
         size_t bytes = 0;
         tiercel_audio_mic_stop(&pcm, &bytes);
-        ESP_LOGI(TAG, "captured %u B (%.1f s), peak level %u, speech %s",
+        /* A quiet floor at or above SPEECH_LEVEL means the room never went
+         * quiet enough to end the utterance -- the threshold needs raising. */
+        ESP_LOGI(TAG, "captured %u B (%.1f s), peak level %u, quiet floor %u "
+                 "(ends below %u), speech %s",
                  (unsigned)bytes, bytes / (TIERCEL_AUDIO_MIC_RATE * 2.0),
-                 (unsigned)s_peak, speech ? "yes" : "no");
+                 (unsigned)s_peak, speech ? (unsigned)floor_lvl : 0u,
+                 (unsigned)SPEECH_LEVEL, speech ? "yes" : "no");
 
         if (s_cancel) {
             continue;                   /* phase already set by cancel() */
