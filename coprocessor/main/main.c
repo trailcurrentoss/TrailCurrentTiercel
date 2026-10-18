@@ -105,6 +105,7 @@ typedef enum {
     EV_SEARCH_DONE,
     EV_CONN,           /* A2DP connection state changed */
     EV_MEDIA_ACK,      /* A2DP media control acknowledged */
+    EV_AUDIO,          /* A2DP stream started or stopped */
     EV_TICK,           /* once a second */
     EV_NAME,           /* a remote name request came back */
     EV_AVRC,           /* the AVRCP (remote control) link came up */
@@ -127,6 +128,7 @@ typedef struct {
             esp_a2d_media_ctrl_t cmd;
             esp_a2d_media_ctrl_ack_t status;
         } ack;
+        esp_a2d_audio_state_t audio;
     };
 } ev_t;
 
@@ -657,6 +659,20 @@ static void on_media_ack(esp_a2d_media_ctrl_t cmd, esp_a2d_media_ctrl_ack_t stat
     }
 }
 
+/* Headphones suspend the stream on their own -- AirPods do once it has
+ * carried only silence for a while. The stream then stays stopped while the
+ * link stays up, and every sound after it plays into nothing until a
+ * reconnect. Forget that media was started, and on_tick() asks again. */
+static void on_audio(esp_a2d_audio_state_t st)
+{
+    ESP_LOGI(TAG, "audio state %d", st);
+    if (s_conn == CONN_CONNECTED && st != ESP_A2D_AUDIO_STATE_STARTED &&
+        s_media_started) {
+        ESP_LOGI(TAG, "stream stopped by the headphones -- restarting");
+        s_media_started = false;
+    }
+}
+
 static void on_tick(void)
 {
     stream_report();
@@ -704,6 +720,9 @@ static void control_task(void *arg)
             break;
         case EV_MEDIA_ACK:
             on_media_ack(ev.ack.cmd, ev.ack.status);
+            break;
+        case EV_AUDIO:
+            on_audio(ev.audio);
             break;
         case EV_TICK:
             on_tick();
@@ -875,7 +894,8 @@ static void a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *p)
         ev.conn.state = p->conn_stat.state;
         post(&ev);
     } else if (event == ESP_A2D_AUDIO_STATE_EVT) {
-        ESP_LOGI(TAG, "audio state %d", p->audio_stat.state);
+        ev_t ev = { .type = EV_AUDIO, .audio = p->audio_stat.state };
+        post(&ev);
     } else if (event == ESP_A2D_MEDIA_CTRL_ACK_EVT) {
         ev_t ev = { .type = EV_MEDIA_ACK };
         ev.ack.cmd = p->media_ctrl_stat.cmd;

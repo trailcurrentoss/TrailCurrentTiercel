@@ -136,8 +136,16 @@ static void paint(void)
         ui_lv_set_text(objects.pg_hint, hint);
     }
 
-    /* Ring: lit ticks grow out from 12 o'clock with the level. */
-    s_ring = live ? (int32_t)tiercel_peregrine_level() * RING_HALF / 100 : 0;
+    /* Ring: lit ticks grow out from 12 o'clock with the level. ui_tick()
+     * moves the scale sections from these, but LVGL 9.2's
+     * lv_scale_section_set_range() only stores the range and never redraws,
+     * so the ring sat frozen at whatever it showed first. Invalidate here
+     * when it changes -- a redraw request, not a geometry change. */
+    const int32_t ring = live ? (int32_t)tiercel_peregrine_level() * RING_HALF / 100 : 0;
+    if (ring != s_ring) {
+        s_ring = ring;
+        lv_obj_invalidate(objects.pg_ring);
+    }
 }
 
 static void anim_timer_cb(lv_timer_t *t)

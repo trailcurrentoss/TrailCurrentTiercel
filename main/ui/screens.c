@@ -2075,7 +2075,7 @@ void create_screen_page_peregrine() {
             objects.pg_spin_arc = obj;
             lv_obj_set_pos(obj, 104, 86);
             lv_obj_set_size(obj, 152, 152);
-            lv_arc_set_value(obj, 100);
+            lv_arc_set_value(obj, 17);
             lv_arc_set_bg_start_angle(obj, 0);
             lv_arc_set_bg_end_angle(obj, 360);
             lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
