@@ -63,9 +63,13 @@ uint8_t tiercel_audio_mic_level(void);
 
 /** Open the DAC for a streamed reply at `rate_hz` (8-48 kHz). */
 bool tiercel_audio_play_start(uint32_t rate_hz);
-/** S16LE mono. Blocks while the DMA drains. */
+/** S16LE mono. Queues into a PSRAM jitter buffer; blocks only when it is
+ *  full. Playback starts once enough is buffered. */
 bool tiercel_audio_play_write(const void *pcm, size_t bytes);
+/** Play out what is buffered, then close the DAC. */
 void tiercel_audio_play_end(void);
+/** Drop what is buffered and close the DAC now. */
+void tiercel_audio_play_abort(void);
 
 /** Smoothed output level, 0-100. 0 when nothing is playing. */
 uint8_t tiercel_audio_out_level(void);
@@ -77,7 +81,7 @@ uint8_t tiercel_audio_get_volume(void);
 
 /**
  * A copy of every block played, after the volume is applied: S16 mono at
- * `rate_hz`, on the playback caller's task. Bluetooth (tiercel_bt) streams
+ * `rate_hz`, on the audio player task. Bluetooth (tiercel_bt) streams
  * these to connected headphones while the co-processor mutes the DAC. The
  * tap must not block for long -- the DAC is waiting behind it.
  */

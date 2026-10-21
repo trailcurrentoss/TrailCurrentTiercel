@@ -3,6 +3,7 @@
  */
 
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -27,13 +28,18 @@ static const char *TAG = "peregrine";
 /*
  * End-of-speech detection, by the mic's smoothed level (tiercel_audio).
  *
- * SPEECH_LEVEL is the floor a voice at arm's length clears and room noise in
- * a quiet coach does not; a fan or a running generator can sit above it, in
- * which case the utterance simply runs until MAX_LISTEN or a tap -- slower,
- * never wrong. Measured levels are logged at the end of every capture so the
- * thresholds can be tuned from the bench.
+ * Speech is SPEECH_MARGIN above the room, measured fresh each time: the
+ * level is ignored for SETTLE_MS while the PDM filter and DC blocker settle
+ * from mic start, and the quietest reading in that window is the room. The
+ * threshold is clamped so a silent room cannot make breathing count as speech
+ * and a fan or a generator cannot push it out of reach -- that case simply
+ * runs until MAX_LISTEN or a tap, slower, never wrong. Measured levels are
+ * logged at the end of every capture so these can be tuned from the bench.
  */
-#define SPEECH_LEVEL      38
+#define SETTLE_MS         300
+#define SPEECH_MARGIN     12
+#define SPEECH_MIN        30
+#define SPEECH_MAX        60
 #define TRAILING_QUIET_MS 900      /* silence after speech that ends it */
 #define NO_SPEECH_MS      6000     /* nothing heard at all: give up */
 #define MAX_LISTEN_MS     11000    /* under the 12 s capture buffer */
@@ -306,6 +312,8 @@ static void send_and_play(const int16_t *pcm, size_t bytes)
     uint8_t rhdr[WAV_HDR_LEN];
     size_t  have_hdr = 0, body = 0;
     bool    playing = false;
+    uint8_t odd = 0;
+    bool    odd_held = false;
     while (!s_cancel) {
         const int n = esp_http_client_read(c, (char *)chunk, sizeof(chunk));
         if (n <= 0) {
@@ -326,12 +334,29 @@ static void send_and_play(const int16_t *pcm, size_t bytes)
                 set_phase(TIERCEL_PG_SPEAKING);
             }
         }
+        /* A TLS read can end mid-sample. Dropping that odd byte would play
+         * everything after it byte-swapped -- loud static that sounds like
+         * clipping -- so it is held and joined to the next read's first. */
+        if (playing && odd_held && off < (size_t)n) {
+            const uint8_t pair[2] = { odd, chunk[off++] };
+            tiercel_audio_play_write(pair, 2);
+            odd_held = false;
+        }
         if (playing && off < (size_t)n) {
-            tiercel_audio_play_write(chunk + off, (size_t)n - off);
+            size_t len = (size_t)n - off;
+            if (len & 1) {
+                odd = chunk[off + --len];
+                odd_held = true;
+            }
+            tiercel_audio_play_write(chunk + off, len);
         }
     }
     if (playing) {
-        tiercel_audio_play_end();
+        if (s_cancel) {
+            tiercel_audio_play_abort();
+        } else {
+            tiercel_audio_play_end();
+        }
     }
     esp_http_client_close(c);
     esp_http_client_cleanup(c);
@@ -369,42 +394,106 @@ static void worker(void *arg)
         s_peak = 0;
         bool speech = false;
         uint8_t floor_lvl = 255;   /* quietest level once speech began */
+        uint8_t room = 255;        /* quietest level while settling */
+        uint8_t speech_lvl = SPEECH_MAX;
+        int64_t speech_at = 0;
+        /* Who holds core 1 while the mic task is starved. */
+        const char *core1_name[8] = {0};
+        unsigned core1_hits[8] = {0};
+        UBaseType_t core1_prio[8] = {0};
         while (!s_cancel && !s_stop_listen) {
             vTaskDelay(pdMS_TO_TICKS(40));
             const int64_t now = esp_timer_get_time();
             const uint8_t lvl = tiercel_audio_mic_level();
+            {
+                TaskHandle_t h1 = xTaskGetCurrentTaskHandleForCore(1);
+                const char *nm = pcTaskGetName(h1);
+                const UBaseType_t pr = uxTaskPriorityGet(h1);
+                for (int k = 0; k < 8; k++) {
+                    if (!core1_name[k] || core1_name[k] == nm) {
+                        core1_name[k] = nm;
+                        core1_hits[k]++;
+                        if (pr > core1_prio[k]) {
+                            core1_prio[k] = pr;
+                        }
+                        break;
+                    }
+                }
+            }
+            const int64_t since = (now - start) / 1000;
+            if (since < SETTLE_MS) {
+                /* The first readings are the filters' start-up step. */
+                if (since >= SETTLE_MS / 2 && lvl < room) {
+                    room = lvl;
+                }
+                s_last_loud = now;
+                continue;
+            }
+            if (room != 255) {
+                const int t = room + SPEECH_MARGIN;
+                speech_lvl = t < SPEECH_MIN ? SPEECH_MIN : t > SPEECH_MAX ? SPEECH_MAX : t;
+                room = 255;
+            }
             if (lvl > s_peak) {
                 s_peak = lvl;
             }
             if (speech && lvl < floor_lvl) {
                 floor_lvl = lvl;
             }
-            if (lvl >= SPEECH_LEVEL) {
+            if (lvl >= speech_lvl) {
                 s_last_loud = now;
                 if (!speech) {
                     speech = true;
+                    speech_at = now;
                     LOCK();
                     s_st.heard_speech = true;
                     UNLOCK();
                 }
             }
-            const int64_t since = (now - start) / 1000;
             if ((speech && (now - s_last_loud) / 1000 > TRAILING_QUIET_MS) ||
                 (!speech && since > NO_SPEECH_MS) ||
                 since > MAX_LISTEN_MS || !tiercel_audio_mic_active()) {
                 break;
             }
         }
+        const int64_t stop_at = esp_timer_get_time();
         const int16_t *pcm = NULL;
         size_t bytes = 0;
         tiercel_audio_mic_stop(&pcm, &bytes);
-        /* A quiet floor at or above SPEECH_LEVEL means the room never went
+        for (int k = 0; k < 8 && core1_name[k]; k++) {
+            ESP_LOGI(TAG, "core 1 running %s: %u samples, priority up to %u",
+                     core1_name[k], core1_hits[k], (unsigned)core1_prio[k]);
+        }
+        ESP_LOGI(TAG, "listen %lld ms: speech from %lld to %lld ms",
+                 (stop_at - start) / 1000,
+                 speech ? (speech_at - start) / 1000 : -1LL,
+                 speech ? (s_last_loud - start) / 1000 : -1LL);
+        /* A quiet floor at or above the speech threshold means the room never went
          * quiet enough to end the utterance -- the threshold needs raising. */
         ESP_LOGI(TAG, "captured %u B (%.1f s), peak level %u, quiet floor %u "
                  "(ends below %u), speech %s",
                  (unsigned)bytes, bytes / (TIERCEL_AUDIO_MIC_RATE * 2.0),
                  (unsigned)s_peak, speech ? (unsigned)floor_lvl : 0u,
-                 (unsigned)SPEECH_LEVEL, speech ? "yes" : "no");
+                 (unsigned)speech_lvl, speech ? "yes" : "no");
+        /* A high quiet floor is either a DC offset (the meter's RMS counts
+         * it) or real broadband noise; mean vs AC RMS tells which. */
+        if (bytes) {
+            const size_t n = bytes / 2;
+            int64_t sum = 0;
+            int clipped = 0;
+            for (size_t i = 0; i < n; i++) {
+                sum += pcm[i];
+                clipped += pcm[i] == 32767 || pcm[i] == -32768;
+            }
+            const int32_t mean = (int32_t)(sum / (int64_t)n);
+            double ac = 0;
+            for (size_t i = 0; i < n; i++) {
+                const double d = pcm[i] - mean;
+                ac += d * d;
+            }
+            ESP_LOGI(TAG, "capture dc %ld, ac rms %.0f, clipped %d",
+                     (long)mean, sqrt(ac / n), clipped);
+        }
 
         if (s_cancel) {
             continue;                   /* phase already set by cancel() */

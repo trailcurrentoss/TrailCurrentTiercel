@@ -11,8 +11,10 @@
 #include "esp_check.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/stream_buffer.h"
 #include "freertos/task.h"
 
 #include "tiercel_audio.h"
@@ -32,9 +34,10 @@ static const char *TAG = "audio";
 #define SPK_PORT    I2S_NUM_1
 #define MIC_PORT    I2S_NUM_0       /* PDM RX exists on I2S0 only */
 
-/* Fireside found the PDM mic quiet at unity; 4x put speech at a level
+/* Fireside found the PDM mic quiet at unity. Here, with the DC offset
+ * removed, 4x left speech near -33 dBFS; 8x puts it at a level
  * Whisper transcribes reliably without clipping a raised voice. */
-#define MIC_SW_GAIN      4
+#define MIC_SW_GAIN      8
 #define MIC_MAX_SECONDS  12
 #define MIC_MAX_BYTES    ((size_t)TIERCEL_AUDIO_MIC_RATE * 2 * MIC_MAX_SECONDS)
 #define MIC_CHUNK_BYTES  1024      /* 32 ms -- the level meter's frame */
@@ -52,6 +55,15 @@ static size_t        s_mic_len;
 static TaskHandle_t  s_mic_task;
 static volatile bool s_mic_stop;
 static volatile uint8_t s_mic_level;
+static int32_t      s_dc_x, s_dc_y;     /* DC blocker state, mic_task only */
+static volatile uint32_t s_mic_ovf;     /* DMA queue overflows this capture */
+
+static bool IRAM_ATTR mic_ovf(i2s_chan_handle_t h, i2s_event_data_t *e, void *ctx)
+{
+    (void)h; (void)e; (void)ctx;
+    s_mic_ovf++;
+    return false;
+}
 
 static volatile bool    s_playing;
 static volatile uint8_t s_out_level;
@@ -129,8 +141,13 @@ static esp_err_t mic_init(void)
     };
     pdm.slot_cfg.slot_mask = I2S_PDM_SLOT_LEFT;   /* mic L/R tied to GND */
     ESP_RETURN_ON_ERROR(i2s_channel_init_pdm_rx_mode(s_rx, &pdm), TAG, "pdm rx");
+    const i2s_event_callbacks_t cbs = { .on_recv_q_ovf = mic_ovf };
+    ESP_RETURN_ON_ERROR(i2s_channel_register_event_callback(s_rx, &cbs, NULL),
+                        TAG, "rx callbacks");
     return ESP_OK;
 }
+
+static esp_err_t player_init(void);
 
 esp_err_t tiercel_audio_init(void)
 {
@@ -155,6 +172,7 @@ esp_err_t tiercel_audio_init(void)
 
     ESP_RETURN_ON_ERROR(speaker_init(), TAG, "speaker");
     ESP_RETURN_ON_ERROR(mic_init(), TAG, "mic");
+    ESP_RETURN_ON_ERROR(player_init(), TAG, "player");
     ESP_LOGI(TAG, "PCM5100A on BCK %d WS %d DOUT %d; PDM mic on CLK %d DIN %d "
                   "@ %d Hz", PIN_BCLK, PIN_WS, PIN_DOUT, PIN_PDM_CLK,
              PIN_PDM_DIN, TIERCEL_AUDIO_MIC_RATE);
@@ -167,15 +185,43 @@ static void mic_task(void *arg)
 {
     (void)arg;
     static int16_t chunk[MIC_CHUNK_BYTES / 2];
+    const int64_t t0 = esp_timer_get_time();
+    uint32_t reads = 0, errs = 0, partial = 0;
+    size_t total = 0;
+    int64_t read_max = 0, work_max = 0, t_work = 0;
+    s_mic_ovf = 0;
     while (!s_mic_stop) {
         size_t got = 0;
-        if (i2s_channel_read(s_rx, chunk, sizeof(chunk), &got,
-                             pdMS_TO_TICKS(200)) != ESP_OK || got == 0) {
+        const int64_t t_read = esp_timer_get_time();
+        if (t_work && t_read - t_work > work_max) {
+            work_max = t_read - t_work;
+        }
+        const esp_err_t err = i2s_channel_read(s_rx, chunk, sizeof(chunk), &got,
+                                               pdMS_TO_TICKS(200));
+        t_work = esp_timer_get_time();
+        if (t_work - t_read > read_max) {
+            read_max = t_work - t_read;
+        }
+        reads++;
+        total += got;
+        if (err != ESP_OK) {
+            errs++;
+            partial += got != 0;
+        }
+        if (err != ESP_OK || got == 0) {
             continue;
         }
+        /* The S3's PDM-to-PCM filter has no high-pass, and this mic sits
+         * about -27 dBFS off zero. Left in, the offset alone read 69 on the
+         * meter, so speech never "ended" and Whisper got 10 s of mostly
+         * silence. A one-pole DC blocker (~10 Hz at 16 kHz) runs before the
+         * gain so the offset cannot clip it either. */
         const size_t n = got / 2;
         for (size_t i = 0; i < n; i++) {
-            int32_t v = (int32_t)chunk[i] * MIC_SW_GAIN;
+            const int32_t x = chunk[i];
+            s_dc_y = x - s_dc_x + (s_dc_y * 4057) / 4096;
+            s_dc_x = x;
+            int32_t v = s_dc_y * MIC_SW_GAIN;
             chunk[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
         }
         s_mic_level = smooth(s_mic_level, level_of(chunk, n));
@@ -191,6 +237,13 @@ static void mic_task(void *arg)
             break;
         }
     }
+    const int64_t ms = (esp_timer_get_time() - t0) / 1000;
+    ESP_LOGI(TAG, "mic task: %lld ms, %u B read (%lld B/s), %lu reads, "
+             "%lu errors (%lu partial), %lu DMA overflows, longest read %lld us, "
+             "longest work %lld us", ms, (unsigned)total,
+             ms ? (long long)total * 1000 / ms : 0LL, (unsigned long)reads,
+             (unsigned long)errs, (unsigned long)partial,
+             (unsigned long)s_mic_ovf, read_max, work_max);
     s_mic_level = 0;
     s_mic_task = NULL;
     vTaskDelete(NULL);
@@ -210,7 +263,14 @@ bool tiercel_audio_mic_start(void)
         ESP_LOGE(TAG, "mic enable failed");
         return false;
     }
-    if (xTaskCreatePinnedToCore(mic_task, "mic", 4096, NULL, 6, &s_mic_task, 1)
+    /* 23, on core 1: above anything LVGL can inherit. LVGL holds its port
+     * lock for a whole render, so one brief wait by the esp_timer task (22)
+     * on a lock LVGL also holds leaves it running at 22 until the render
+     * ends -- FreeRTOS only disinherits once every mutex is released. At 6,
+     * and even at 19, the mic lost ~80% of each capture to DMA overflow
+     * while the level ring redrew. Wi-Fi's 23 is on core 0, and this task
+     * runs for microseconds every 32 ms. */
+    if (xTaskCreatePinnedToCore(mic_task, "mic", 4096, NULL, 23, &s_mic_task, 1)
             != pdPASS) {
         i2s_channel_disable(s_rx);
         s_mic_task = NULL;
@@ -252,6 +312,7 @@ size_t tiercel_audio_mic_bytes(void)
 /* ---- playback --------------------------------------------------------- */
 
 static uint32_t            s_rate;
+static uint32_t            s_play_underruns;
 static tiercel_audio_tap_t s_tap;
 static void               *s_tap_ctx;
 
@@ -269,9 +330,114 @@ static void set_rate(uint32_t hz)
     }
 }
 
+/*
+ * Replies stream in as the LLM writes them: a sentence, a pause while the
+ * next one is generated, another sentence -- and Wi-Fi delivers each in
+ * bursts. Fed straight to the DAC, every late packet was an underrun, and
+ * every underrun cut the waveform mid-swing: a pop. So the network side only
+ * fills a PSRAM stream buffer, and a player task on core 1 feeds the DAC from
+ * it. Playback starts once PREROLL_MS is buffered; when the buffer runs dry
+ * the last block fades to silence and playback waits for REBUFFER_MS before
+ * fading back in, so a gap is a pause rather than a click.
+ */
+#define PLAY_BUF_BYTES  (256 * 1024)
+#define PREROLL_MS      400
+#define REBUFFER_MS     250
+#define FADE_IN_SAMPLES 256
+
+static StreamBufferHandle_t s_play_buf;
+static TaskHandle_t         s_player;
+static SemaphoreHandle_t    s_play_done;
+static volatile bool        s_play_eos;
+static volatile bool        s_play_abort;
+
+static size_t ms_bytes(uint32_t ms) { return (size_t)s_rate * 2 * ms / 1000; }
+
+/* Scale, meter, tap and write one block. ramp > 0 fades in over that many
+ * samples; ramp < 0 fades the whole block out. */
+static void play_block(size_t n, int ramp)
+{
+    /* Squared curve: 50 on the knob is a quarter of full scale, which is
+     * about where "half as loud" sits to the ear. */
+    const int32_t gain = (int32_t)s_volume * s_volume;     /* 0..10000 */
+    s_out_level = smooth(s_out_level, level_of(s_scratch, n));
+    for (size_t i = 0; i < n; i++) {
+        int32_t v = ((int32_t)s_scratch[i] * gain) / 10000;
+        if (ramp > 0 && i < (size_t)ramp) {
+            v = v * (int32_t)i / ramp;
+        } else if (ramp < 0) {
+            v = v * (int32_t)(n - i) / (int32_t)n;
+        }
+        s_scratch[i] = (int16_t)v;
+    }
+    if (s_tap) {
+        s_tap(s_scratch, n, s_rate, s_tap_ctx);
+    }
+    size_t written = 0;
+    i2s_channel_write(s_tx, s_scratch, n * 2, &written, pdMS_TO_TICKS(2000));
+}
+
+static void player_task(void *arg)
+{
+    (void)arg;
+    while (true) {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        size_t need = ms_bytes(PREROLL_MS);
+        bool primed = false;
+        int ramp = FADE_IN_SAMPLES;
+        while (!s_play_abort) {
+            const size_t avail = xStreamBufferBytesAvailable(s_play_buf);
+            if (!primed) {
+                if (avail < need && !s_play_eos) {
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                    continue;
+                }
+                primed = true;
+            }
+            if (avail == 0 && s_play_eos) {
+                break;
+            }
+            const size_t got = xStreamBufferReceive(s_play_buf, s_scratch,
+                                                    sizeof(s_scratch), 0) & ~(size_t)1;
+            if (got < sizeof(s_scratch) && !s_play_eos) {
+                /* Ran dry mid-reply: fade out what is here, then rebuffer. */
+                if (got) {
+                    play_block(got / 2, -1);
+                }
+                s_play_underruns++;
+                primed = false;
+                need = ms_bytes(REBUFFER_MS);
+                ramp = FADE_IN_SAMPLES;
+                continue;
+            }
+            if (got) {
+                play_block(got / 2, ramp);
+                ramp = 0;
+            }
+        }
+        s_out_level = 0;
+        xSemaphoreGive(s_play_done);
+    }
+}
+
+static esp_err_t player_init(void)
+{
+    s_play_buf = xStreamBufferCreateWithCaps(PLAY_BUF_BYTES, 1,
+                                             MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    s_play_done = xSemaphoreCreateBinary();
+    ESP_RETURN_ON_FALSE(s_play_buf && s_play_done, ESP_ERR_NO_MEM, TAG,
+                        "play buffer (%d B PSRAM)", PLAY_BUF_BYTES);
+    /* Same core and priority as the mic, for the same reason: LVGL can run
+     * at an inherited 22 on core 1 for a whole render. */
+    ESP_RETURN_ON_FALSE(xTaskCreatePinnedToCore(player_task, "player", 4096, NULL,
+                                                23, &s_player, 1) == pdPASS,
+                        ESP_ERR_NO_MEM, TAG, "player task");
+    return ESP_OK;
+}
+
 bool tiercel_audio_play_start(uint32_t rate_hz)
 {
-    if (!s_tx || s_playing) {
+    if (!s_tx || !s_player || s_playing) {
         return false;
     }
     if (rate_hz < 8000 || rate_hz > 48000) {
@@ -284,7 +450,12 @@ bool tiercel_audio_play_start(uint32_t rate_hz)
     if (i2s_channel_enable(s_tx) != ESP_OK) {
         return false;
     }
+    xStreamBufferReset(s_play_buf);
+    s_play_eos = false;
+    s_play_abort = false;
+    s_play_underruns = 0;
     s_playing = true;
+    xTaskNotifyGive(s_player);
     ESP_LOGI(TAG, "playback @ %lu Hz, volume %u", (unsigned long)rate_hz,
              (unsigned)s_volume);
     return true;
@@ -295,36 +466,30 @@ bool tiercel_audio_play_write(const void *pcm, size_t bytes)
     if (!s_playing || !pcm) {
         return false;
     }
-    /* Squared curve: 50 on the knob is a quarter of full scale, which is
-     * about where "half as loud" sits to the ear. */
-    const int32_t gain = (int32_t)s_volume * s_volume;     /* 0..10000 */
-    const int16_t *src = pcm;
-    size_t left = bytes / 2;
-    while (left) {
-        const size_t n = left < PLAY_SCRATCH_SAMPLES ? left : PLAY_SCRATCH_SAMPLES;
-        for (size_t i = 0; i < n; i++) {
-            s_scratch[i] = (int16_t)(((int32_t)src[i] * gain) / 10000);
+    const uint8_t *src = pcm;
+    bytes &= ~(size_t)1;
+    while (bytes && !s_play_abort) {
+        const size_t sent = xStreamBufferSend(s_play_buf, src, bytes,
+                                              pdMS_TO_TICKS(2000));
+        if (!sent) {
+            return false;               /* player stuck: give up the reply */
         }
-        s_out_level = smooth(s_out_level, level_of(src, n));
-        if (s_tap) {
-            s_tap(s_scratch, n, s_rate, s_tap_ctx);
-        }
-        size_t written = 0;
-        if (i2s_channel_write(s_tx, s_scratch, n * 2, &written,
-                              pdMS_TO_TICKS(2000)) != ESP_OK) {
-            return false;
-        }
-        src  += n;
-        left -= n;
+        src   += sent;
+        bytes -= sent;
     }
     return true;
 }
 
-void tiercel_audio_play_end(void)
+static void play_finish(bool abort)
 {
     if (!s_playing) {
         return;
     }
+    xSemaphoreTake(s_play_done, 0);     /* clear a stale completion */
+    s_play_abort = abort;
+    s_play_eos = true;
+    /* The whole buffer at 8 kHz is 16 s; never wait longer than that. */
+    xSemaphoreTake(s_play_done, pdMS_TO_TICKS(PLAY_BUF_BYTES / 16));
     /* 100 ms of silence so the last DMA buffer is not replayed as a click
      * when the channel stops. */
     memset(s_scratch, 0, sizeof(s_scratch));
@@ -336,7 +501,14 @@ void tiercel_audio_play_end(void)
     i2s_channel_disable(s_tx);
     s_playing = false;
     s_out_level = 0;
+    if (s_play_underruns) {
+        ESP_LOGI(TAG, "playback rebuffered %lu time(s)",
+                 (unsigned long)s_play_underruns);
+    }
 }
+
+void tiercel_audio_play_end(void)   { play_finish(false); }
+void tiercel_audio_play_abort(void) { play_finish(true); }
 
 uint8_t tiercel_audio_out_level(void) { return s_playing ? s_out_level : 0; }
 
