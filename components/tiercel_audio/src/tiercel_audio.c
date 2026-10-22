@@ -11,7 +11,6 @@
 #include "esp_check.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
-#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/stream_buffer.h"
@@ -185,30 +184,11 @@ static void mic_task(void *arg)
 {
     (void)arg;
     static int16_t chunk[MIC_CHUNK_BYTES / 2];
-    const int64_t t0 = esp_timer_get_time();
-    uint32_t reads = 0, errs = 0, partial = 0;
-    size_t total = 0;
-    int64_t read_max = 0, work_max = 0, t_work = 0;
     s_mic_ovf = 0;
     while (!s_mic_stop) {
         size_t got = 0;
-        const int64_t t_read = esp_timer_get_time();
-        if (t_work && t_read - t_work > work_max) {
-            work_max = t_read - t_work;
-        }
-        const esp_err_t err = i2s_channel_read(s_rx, chunk, sizeof(chunk), &got,
-                                               pdMS_TO_TICKS(200));
-        t_work = esp_timer_get_time();
-        if (t_work - t_read > read_max) {
-            read_max = t_work - t_read;
-        }
-        reads++;
-        total += got;
-        if (err != ESP_OK) {
-            errs++;
-            partial += got != 0;
-        }
-        if (err != ESP_OK || got == 0) {
+        if (i2s_channel_read(s_rx, chunk, sizeof(chunk), &got,
+                             pdMS_TO_TICKS(200)) != ESP_OK || got == 0) {
             continue;
         }
         /* The S3's PDM-to-PCM filter has no high-pass, and this mic sits
@@ -237,13 +217,12 @@ static void mic_task(void *arg)
             break;
         }
     }
-    const int64_t ms = (esp_timer_get_time() - t0) / 1000;
-    ESP_LOGI(TAG, "mic task: %lld ms, %u B read (%lld B/s), %lu reads, "
-             "%lu errors (%lu partial), %lu DMA overflows, longest read %lld us, "
-             "longest work %lld us", ms, (unsigned)total,
-             ms ? (long long)total * 1000 / ms : 0LL, (unsigned long)reads,
-             (unsigned long)errs, (unsigned long)partial,
-             (unsigned long)s_mic_ovf, read_max, work_max);
+    /* Each overflow is a 16 ms DMA buffer the task was too late to read: a
+     * hole in the speech Whisper hears. Should stay at zero. */
+    if (s_mic_ovf) {
+        ESP_LOGW(TAG, "capture lost %lu DMA buffer(s) -- mic task starved",
+                 (unsigned long)s_mic_ovf);
+    }
     s_mic_level = 0;
     s_mic_task = NULL;
     vTaskDelete(NULL);
@@ -344,6 +323,11 @@ static void set_rate(uint32_t hz)
 #define PREROLL_MS      400
 #define REBUFFER_MS     250
 #define FADE_IN_SAMPLES 256
+/* How far ahead of the DAC the network may run. Without a cap the worker
+ * pulled a whole reply in one burst, and TLS decryption from PSRAM buffers
+ * -- busy-polled 1600-byte AES DMA chunks -- held core 0 long enough to trip
+ * its idle watchdog. Paced at the playback rate it barely registers. */
+#define LEAD_MS         1500
 
 static StreamBufferHandle_t s_play_buf;
 static TaskHandle_t         s_player;
@@ -469,6 +453,10 @@ bool tiercel_audio_play_write(const void *pcm, size_t bytes)
     const uint8_t *src = pcm;
     bytes &= ~(size_t)1;
     while (bytes && !s_play_abort) {
+        if (xStreamBufferBytesAvailable(s_play_buf) > ms_bytes(LEAD_MS)) {
+            vTaskDelay(pdMS_TO_TICKS(20));
+            continue;
+        }
         const size_t sent = xStreamBufferSend(s_play_buf, src, bytes,
                                               pdMS_TO_TICKS(2000));
         if (!sent) {

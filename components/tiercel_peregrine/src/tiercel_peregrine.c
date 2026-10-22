@@ -3,7 +3,6 @@
  */
 
 #include <ctype.h>
-#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -396,30 +395,10 @@ static void worker(void *arg)
         uint8_t floor_lvl = 255;   /* quietest level once speech began */
         uint8_t room = 255;        /* quietest level while settling */
         uint8_t speech_lvl = SPEECH_MAX;
-        int64_t speech_at = 0;
-        /* Who holds core 1 while the mic task is starved. */
-        const char *core1_name[8] = {0};
-        unsigned core1_hits[8] = {0};
-        UBaseType_t core1_prio[8] = {0};
         while (!s_cancel && !s_stop_listen) {
             vTaskDelay(pdMS_TO_TICKS(40));
             const int64_t now = esp_timer_get_time();
             const uint8_t lvl = tiercel_audio_mic_level();
-            {
-                TaskHandle_t h1 = xTaskGetCurrentTaskHandleForCore(1);
-                const char *nm = pcTaskGetName(h1);
-                const UBaseType_t pr = uxTaskPriorityGet(h1);
-                for (int k = 0; k < 8; k++) {
-                    if (!core1_name[k] || core1_name[k] == nm) {
-                        core1_name[k] = nm;
-                        core1_hits[k]++;
-                        if (pr > core1_prio[k]) {
-                            core1_prio[k] = pr;
-                        }
-                        break;
-                    }
-                }
-            }
             const int64_t since = (now - start) / 1000;
             if (since < SETTLE_MS) {
                 /* The first readings are the filters' start-up step. */
@@ -444,7 +423,6 @@ static void worker(void *arg)
                 s_last_loud = now;
                 if (!speech) {
                     speech = true;
-                    speech_at = now;
                     LOCK();
                     s_st.heard_speech = true;
                     UNLOCK();
@@ -456,44 +434,16 @@ static void worker(void *arg)
                 break;
             }
         }
-        const int64_t stop_at = esp_timer_get_time();
         const int16_t *pcm = NULL;
         size_t bytes = 0;
         tiercel_audio_mic_stop(&pcm, &bytes);
-        for (int k = 0; k < 8 && core1_name[k]; k++) {
-            ESP_LOGI(TAG, "core 1 running %s: %u samples, priority up to %u",
-                     core1_name[k], core1_hits[k], (unsigned)core1_prio[k]);
-        }
-        ESP_LOGI(TAG, "listen %lld ms: speech from %lld to %lld ms",
-                 (stop_at - start) / 1000,
-                 speech ? (speech_at - start) / 1000 : -1LL,
-                 speech ? (s_last_loud - start) / 1000 : -1LL);
-        /* A quiet floor at or above the speech threshold means the room never went
-         * quiet enough to end the utterance -- the threshold needs raising. */
+        /* A quiet floor at or above the speech threshold means the room
+         * never went quiet enough to end the utterance. */
         ESP_LOGI(TAG, "captured %u B (%.1f s), peak level %u, quiet floor %u "
                  "(ends below %u), speech %s",
                  (unsigned)bytes, bytes / (TIERCEL_AUDIO_MIC_RATE * 2.0),
                  (unsigned)s_peak, speech ? (unsigned)floor_lvl : 0u,
                  (unsigned)speech_lvl, speech ? "yes" : "no");
-        /* A high quiet floor is either a DC offset (the meter's RMS counts
-         * it) or real broadband noise; mean vs AC RMS tells which. */
-        if (bytes) {
-            const size_t n = bytes / 2;
-            int64_t sum = 0;
-            int clipped = 0;
-            for (size_t i = 0; i < n; i++) {
-                sum += pcm[i];
-                clipped += pcm[i] == 32767 || pcm[i] == -32768;
-            }
-            const int32_t mean = (int32_t)(sum / (int64_t)n);
-            double ac = 0;
-            for (size_t i = 0; i < n; i++) {
-                const double d = pcm[i] - mean;
-                ac += d * d;
-            }
-            ESP_LOGI(TAG, "capture dc %ld, ac rms %.0f, clipped %d",
-                     (long)mean, sqrt(ac / n), clipped);
-        }
 
         if (s_cancel) {
             continue;                   /* phase already set by cancel() */

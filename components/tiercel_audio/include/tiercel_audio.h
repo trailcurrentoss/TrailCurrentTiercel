@@ -63,8 +63,9 @@ uint8_t tiercel_audio_mic_level(void);
 
 /** Open the DAC for a streamed reply at `rate_hz` (8-48 kHz). */
 bool tiercel_audio_play_start(uint32_t rate_hz);
-/** S16LE mono. Queues into a PSRAM jitter buffer; blocks only when it is
- *  full. Playback starts once enough is buffered. */
+/** S16LE mono. Queues into a PSRAM jitter buffer, blocking while 1.5 s is
+ *  already queued so the caller runs at playback pace. Playback starts once
+ *  enough is buffered. */
 bool tiercel_audio_play_write(const void *pcm, size_t bytes);
 /** Play out what is buffered, then close the DAC. */
 void tiercel_audio_play_end(void);
